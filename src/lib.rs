@@ -1,6 +1,6 @@
 /// An s-expression is either an atom or a list of s-expressions. This is
 /// similar to the data format used by lisp.
-#[derive(Clone, Debug)]
+#[derive(PartialEq, PartialOrd, Clone, Debug)]
 pub enum Sexp {
     Nil,
     Atom(String),
@@ -18,6 +18,8 @@ pub enum ReadSexpError {
 }
 
 impl Sexp {
+    /// Read an s-expression from the string `tokens`. Any whitespace between
+    /// tokens is discarded.
     fn read(tokens: &str) -> Result<Sexp, ReadSexpError> {
         // returns the char it found, and the new size if you wish to consume that char
         fn peek(s: &str, pos: &usize) -> Option<(char, usize)> {
@@ -86,12 +88,14 @@ impl Sexp {
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use ::Sexp;
+    /// Recursively expand an abbreviated s-expression format to it's full Rust struct representation.
     macro_rules! expand_sexp {
         () => {{ Sexp::Nil }};
-        (atom_s[$string:expr]) => {{ Sexp::Atom(String::from($string)) }};
+        (atom[$string:expr]) => {{ Sexp::Atom(String::from($string)) }};
         (cons [ car[ $car:tt ] cdr[ $cdr:tt ] ]) => {{
             Sexp::Cons { car: Box::new(expand_sexp!($car)), cdr: Box::new(expand_sexp!($cdr))}
         }};
@@ -103,12 +107,12 @@ mod tests {
     #[test]
     fn test_sexp_reader() {
         assert_eq!(
-            println!("{:?}", Sexp::read("((a b) (c (d)))").unwrap()),
-            println!("{:?}", expand_sexp!(
+            Sexp::read("(a b (c (d)))").unwrap(),
+            expand_sexp!(
                 cons[
-                    car[cons[car[atom_s["a"]]
-                             cdr[atom_s["b"]]]]
-                        cdr[cons[car[atom_s["c"]] cdr[cons[car[atom_s["d"]] cdr[]] ]]]]))
+                    car[cons[car[atom["a"]]
+                             cdr[atom["b"]]]]
+                        cdr[cons[car[atom["c"]] cdr[cons[car[atom["d"]] cdr[]] ]]]])
         )
     }
 }
