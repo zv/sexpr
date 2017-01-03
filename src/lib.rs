@@ -86,27 +86,29 @@ impl Sexp {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use ::Sexp;
-//     #[test]
-//     fn test_sexp_reader() {
-//         assert_eq!(
-//             Sexp::read("(a b (c (d)))").unwrap(),
-//             Sexp::Cons {
-//                 car: Box::new(
-//                     Sexp::Cons {
-//                         car: Box::new(Sexp::Atom(String::from("a"))),
-//                         cdr: Box::new(Sexp::Atom(String::from("b"))) }
-//                 ),
-//                 cdr: Box::new(Sexp::Cons {
-//                     car: Box::new(Sexp::Atom(String::from("c"))),
-//                     cdr: Box::new(Sexp::Cons {
-//                         car: Box::new(Sexp::Atom(String::from("d"))),
-//                         cdr: Box::new(Sexp::Nil)
-//                     })
-//                 })
-//             }
-//         )
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use ::Sexp;
+    macro_rules! expand_sexp {
+        () => {{ Sexp::Nil }};
+        (atom_s[$string:expr]) => {{ Sexp::Atom(String::from($string)) }};
+        (cons [ car[ $car:tt ] cdr[ $cdr:tt ] ]) => {{
+            Sexp::Cons { car: Box::new(expand_sexp!($car)), cdr: Box::new(expand_sexp!($cdr))}
+        }};
+        (cons [ car[ $($car:tt)* ] cdr[ $($cdr:tt)* ] ]) => {{
+            Sexp::Cons { car: Box::new(expand_sexp!($($car)*)), cdr: Box::new(expand_sexp!($($cdr)*))}
+        }};
+    }
+
+    #[test]
+    fn test_sexp_reader() {
+        assert_eq!(
+            println!("{:?}", Sexp::read("((a b) (c (d)))").unwrap()),
+            println!("{:?}", expand_sexp!(
+                cons[
+                    car[cons[car[atom_s["a"]]
+                             cdr[atom_s["b"]]]]
+                        cdr[cons[car[atom_s["c"]] cdr[cons[car[atom_s["d"]] cdr[]] ]]]]))
+        )
+    }
+}
