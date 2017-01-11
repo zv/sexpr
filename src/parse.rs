@@ -6,11 +6,13 @@ use Sexp;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ErrorCode {
     InvalidSyntax,
+    InvalidAtom,
     InvalidNumber,
     InvalidEscape,
     UnrecognizedBase64,
     UnrecognizedHex,
     UnexpectedEndOfHexEscape,
+    EOFWhileParsingAtom,
     EOFWhileParsingList,
     EOFWhileParsingValue,
     EOFWhileParsingNumeric,
@@ -97,12 +99,30 @@ impl<T: Iterator<Item = char>> Parser<T> {
             self.ch_is('\r') { self.bump(); }
     }
 
+    fn parse_atom(&mut self) -> ParseResult {
+        debug("Parsing Atom");
+        let mut result = String::new();
+        loop {
+            match self.ch {
+                Some(ch @ 'a' ... 'z') => result.push(ch),
+                Some(_) => {
+                    self.bump();
+                    return Ok(Sexp::Atom(result))
+                },
+                None => return self.error(EOFWhileParsingAtom)
+            };
+            self.bump();
+        }
+    }
+
     fn parse_string(&mut self) -> ParseResult {
         debug("Parsing String");
         let mut result = String::new();
         let mut escape = false;
 
         loop {
+            self.bump();
+
             if escape {
                 // do escape bullshit
                 match self.ch_or_null() {
