@@ -140,6 +140,8 @@ impl<T: Iterator<Item = char>> Parser<T> {
                     't' => result.push('\t'),
                     _ => return self.error(InvalidEscape),
                 }
+
+                escape = false;
             } else if self.ch_is('\\') {
                 escape = true;
             } else {
