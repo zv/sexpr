@@ -122,7 +122,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
                 match self.ch {
                     Some('"') => {
                         self.bump();
-                        return Ok(Sexp::Atom(result));
+                        return Ok(Sexp::String(result));
                     },
                     Some(ch) if ch <= '\u{1F}' =>
                         return self.error(ControlCharacterInString),
