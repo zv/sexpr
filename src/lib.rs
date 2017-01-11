@@ -96,24 +96,36 @@ use self::Sexp::*;
 
 impl fmt::Display for Sexp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Nil => write!(f, ""),
-            Symbol(ref sym) => write!(f, "{}", sym),
-            String(ref string) => write!(f, "{}", string),
-            F64(num) => write!(f, "{}", num),
-            I64(num) => write!(f, "{}", num),
-            U64(num) => write!(f, "{}", num),
-            Boolean(true) => write!(f, "#t"),
-            Boolean(false) => write!(f, "#f"),
-            Cons { box ref car, box ref cdr } => {
-                match car {
-                    &Sexp::Cons { car: ref caar, cdr: ref cdar } => {
-                        write!(f, "( {} {} )", caar, cdar)
+        fn fmt_driver(sexp: &Sexp) -> String {
+            match sexp {
+                &Nil => format!("#nil"),
+                &Symbol(ref sym) => format!("{}", sym),
+                &String(ref string) => format!("\"{}\"", string),
+                &F64(num) => format!("{}", num),
+                &I64(num) => format!("{}", num),
+                &U64(num) => format!("{}", num),
+                &Boolean(true) => format!("#t"),
+                &Boolean(false) => format!("#f"),
+                // Due to the complex rules surrounding how a 'list' of
+                // s-expressions is stringified, there is a lot of logic here
+                // for determining the inclusion of surrounding parenthesis
+                &Cons { box ref car, box ref cdr } => {
+                    match car {
+                        &Sexp::Cons { car: ref caar, cdr: ref cdar } => {
+                            format!("({} {})", fmt_driver(caar), fmt_driver(cdar))
+                        },
+                        _ => {
+                            match cdr {
+                                &Nil => format!("{}", fmt_driver(car)),
+                                _ => format!("{} {}", fmt_driver(car), fmt_driver(cdr))
+                            }
+                        }
                     }
-                    _ => write!(f, "{} {}", car, cdr)
                 }
             }
         }
+
+        write!(f, "({})", fmt_driver(self))
     }
 }
 
