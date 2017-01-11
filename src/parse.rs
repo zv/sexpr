@@ -2,34 +2,10 @@
 
 use Sexp;
 
-/// The errors that can arise while parsing a S-expression stream.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ErrorCode {
-    InvalidSyntax,
-    InvalidAtom,
-    InvalidNumber,
-    InvalidEscape,
-    UnrecognizedBase64,
-    UnrecognizedHex,
-    UnexpectedEndOfHexEscape,
-    EOFWhileParsingAtom,
-    EOFWhileParsingList,
-    EOFWhileParsingValue,
-    EOFWhileParsingNumeric,
-    ControlCharacterInString,
-    TrailingCharacters,
-}
-
-#[derive(Debug)]
-pub enum ParserError {
-    ///         msg,      line,   col
-    SyntaxError(ErrorCode, usize, usize),
-    // IoError(io::Error),
-}
-
-
-use self::ErrorCode::*;
-use self::ParserError::*;
+use error::ErrorCode;
+use error::ErrorCode::*;
+use error::ParserError;
+use error::ParserError::*;
 
 pub struct ParseConfig {
     // Escape #number# to it's appropriate hex decoding.
@@ -40,7 +16,7 @@ pub struct ParseConfig {
     case_insensitive: bool,
 }
 
-/// A streaming S-Exp parser implemented as an iterator of SexpEvent, consuming
+/// A streaming S-Exp parser implemented as an iterator of `SexpEvent`, consuming
 /// an iterator of char.
 pub struct Parser<T> {
     reader: T,
@@ -52,12 +28,9 @@ pub struct Parser<T> {
 
 type ParseResult = Result<Sexp, ParserError>;
 
-fn debug(s: &str) {
-    println!("{}", s);
-}
+fn debug(s: &str) { println!("{}", s) }
 
 impl<T: Iterator<Item = char>> Parser<T> {
-
     pub fn new(reader: T) -> Parser<T> {
         let mut p = Parser {
             reader: reader,
@@ -90,10 +63,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
     }
 
     fn next_char(&mut self) -> Option<char> { self.bump(); self.ch }
-    fn ch_or_null(&self) -> char { self.ch.unwrap_or('\x00') }
-    fn ch_is(&self, c: char) -> bool {
-        self.ch == Some(c)
-    }
+    fn ch_is(&self, c: char) -> bool { self.ch == Some(c) }
     fn eof(&self) -> bool { self.ch.is_none() }
 
     fn parse_whitespace(&mut self) {
@@ -111,7 +81,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
                 Some(ch @ 'a' ... 'z') => result.push(ch),
                 Some(_) => {
                     self.bump();
-                    return Ok(Sexp::Atom(result))
+                    return Ok(Sexp::Symbol(result))
                 },
                 None => return self.error(EOFWhileParsingAtom)
             };
@@ -129,18 +99,18 @@ impl<T: Iterator<Item = char>> Parser<T> {
 
             if escape {
                 // do escape bullshit
-                match self.ch_or_null() {
-                    '"' => result.push('"'),
-                    '\\' => result.push('\\'),
-                    '/' => result.push('/'),
-                    'b' => result.push('\x08'),
-                    'f' => result.push('\x0c'),
-                    'n' => result.push('\n'),
-                    'r' => result.push('\r'),
-                    't' => result.push('\t'),
-                    _ => return self.error(InvalidEscape),
+                match self.ch {
+                    Some('"')  => result.push('"'),
+                    Some('\\') => result.push('\\'),
+                    Some('/')  => result.push('/'),
+                    Some('b')  => result.push('\x08'),
+                    Some('f')  => result.push('\x0c'),
+                    Some('n')  => result.push('\n'),
+                    Some('r')  => result.push('\r'),
+                    Some('t')  => result.push('\t'),
+                    Some(_)    => return self.error(InvalidEscape),
+                    None       => return self.error(UnexpectedEndOfHexEscape)
                 }
-
                 escape = false;
             } else if self.ch_is('\\') {
                 escape = true;
@@ -158,7 +128,6 @@ impl<T: Iterator<Item = char>> Parser<T> {
             }
 
         }
-
     }
 
     fn parse_numeric(&mut self) -> ParseResult {
@@ -208,7 +177,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
                     cdr: Box::new(self.parse_list()?)
                 })
             }
-            None => Ok(Sexp::Nil)
+            None => self.error(EOFWhileParsingList)
         }
     }
 
@@ -221,13 +190,10 @@ impl<T: Iterator<Item = char>> Parser<T> {
                 self.bump();
                 self.parse_list()
             },
-            // Some(')') | Some(']') if self.config.SquareBrackets => (),
+            Some(')') => self.error(UnexpectedEndOfList),
             Some('-') | Some('0' ... '9') => self.parse_numeric(),
             Some('"') => self.parse_string(),
-            // Some('#') if self.config.HexEscapes => (),
-            Some(_ch) => {
-                self.parse_atom()
-            },
+            Some(_) => self.parse_atom(),
             None => self.error(EOFWhileParsingValue)
         }
     }
