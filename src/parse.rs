@@ -65,6 +65,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
     fn next_char(&mut self) -> Option<char> { self.bump(); self.ch }
     fn ch_is(&self, c: char) -> bool { self.ch == Some(c) }
     fn eof(&self) -> bool { self.ch.is_none() }
+    fn ch_or_null(&self) -> char { self.ch.unwrap_or('\x00') }
 
     fn parse_whitespace(&mut self) {
         while self.ch_is(' ') ||
@@ -77,13 +78,18 @@ impl<T: Iterator<Item = char>> Parser<T> {
         debug("Parsing Atom");
         let mut result = String::new();
         loop {
-            match self.ch {
-                Some(ch @ 'a' ... 'z') => result.push(ch),
-                Some(_) => {
+            // In cases with large number of or-cases, it's more convienent to
+            // unwrap the character ahead of time and check for the null byte as
+            // a sentinel for EOF.
+            match self.ch_or_null() {
+                ch @ 'a' ... 'z' => result.push(ch),
+                '\t' | ' ' | '\n' => {
                     self.bump();
                     return Ok(Sexp::Symbol(result))
                 },
-                None => return self.error(EOFWhileParsingAtom)
+                // We've encountered an EOF
+                '\x00' => return self.error(EOFWhileParsingAtom),
+                _ => return self.error(InvalidAtom),
             };
             self.bump();
         }
