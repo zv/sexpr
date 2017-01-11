@@ -4,12 +4,9 @@
 // Licensed under the MIT License, <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-
 //! S-expression parsing and serialization
 //!
 //! # What are S-expressions?
-
-
 //! # What are S-Expressions?
 //!
 //! S-expressions are data structures for representing complex data.  They
@@ -61,11 +58,10 @@
 //!
 //! println!("Colorado's Capital is: {}", decoded.get("Colorado"))
 //! ```
-
-
-
 #![feature(box_patterns)]
+use std::fmt;
 use std::str::FromStr;
+use std::string::String;
 
 /// An s-expression is either an atom or a list of s-expressions. This is
 /// similar to the data format used by lisp.
@@ -96,8 +92,32 @@ impl FromStr for Sexp {
     }
 }
 
+use self::Sexp::*;
+
+impl fmt::Display for Sexp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Nil => write!(f, ""),
+            Symbol(ref sym) => write!(f, "{}", sym),
+            String(ref string) => write!(f, "{}", string),
+            F64(num) => write!(f, "{}", num),
+            I64(num) => write!(f, "{}", num),
+            U64(num) => write!(f, "{}", num),
+            Boolean(true) => write!(f, "#t"),
+            Boolean(false) => write!(f, "#f"),
+            Cons { box ref car, box ref cdr } => {
+                match car {
+                    &Sexp::Cons { car: ref caar, cdr: ref cdar } => {
+                        write!(f, "( {} {} )", caar, cdar)
+                    }
+                    _ => write!(f, "{} {}", car, cdr)
+                }
+            }
+        }
+    }
+}
+
 impl Sexp {
-    //  
     pub fn car(self) -> Option<Sexp> {
         match self {
             Sexp::Cons { car: box car, cdr: _ } => Some(car),
