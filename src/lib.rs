@@ -4,115 +4,67 @@
 pub enum Sexp {
     Nil,
     Atom(String),
+    String(String),
+    I64(i64),
+    U64(u64),
+    F64(f64),
+    Boolean(bool),
     Cons { car: Box<Sexp>, cdr: Box<Sexp> }
 }
-
-#[allow(unused_variables)]
-fn dbg(msg: &str, pos: &usize) { println!("{} @ {}", msg, pos) }
 
 
 #[derive(Clone, Debug)]
 pub enum ReadSexpError {
     InvalidTerminal,
     UnknownSymbol,
+    ParseIntError,
+    PairingSymbol
 }
 
-impl Sexp {
-    /// Read an s-expression from the string `tokens`. Any whitespace between
-    /// tokens is discarded.
-    fn read(tokens: &str) -> Result<Sexp, ReadSexpError> {
-        // returns the char it found, and the new size if you wish to consume that char
-        fn peek(s: &str, pos: &usize) -> Option<(char, usize)> {
-            dbg("peek", pos);
-            if *pos == s.len() {
-                None
-            } else if s.is_char_boundary(*pos) {
-                let ch = s[*pos..].chars().next().unwrap();
-                let next = *pos + ch.len_utf8();
-                Some((ch, next))
-            } else {
-                // strings must be composed of valid utf-8 chars.
-                unreachable!()
-            }
-        }
-
-        fn read_term(tokens: &str, pos: &mut usize) -> Result<Sexp, ReadSexpError> {
-            dbg("read_term", pos);
-            let mut nnn = String::new();
-            while let Some((ch, _)) = peek(tokens, pos) {
-                *pos = *pos + 1;
-                match ch {
-                    'A'...'Z' | 'a'...'z' => nnn.push(ch),
-                    _ => break
-                }
-            }
-
-            Ok(Sexp::Atom(nnn))
-        }
-
-        fn read_list(tokens: &str, pos: &mut usize) -> Result<Sexp, ReadSexpError> {
-            let mut seek = || {
-                let mut result: Sexp = Sexp::Nil;
-                loop {
-                    let (ch, sz) = match peek(tokens, pos) {
-                        Some(i) => i,
-                        None => return result
-                    };
-                    if ch == ' ' { *pos = sz; continue; }
-                    if ch == ')' { *pos = sz; return result; }
-
-                    result = match ch {
-                        '('  => {
-                            *pos = *pos + 1;
-                            read_list(tokens, pos).unwrap()
-                        },
-                        // '0'...'9' => read_num(tokens, pos).unwrap(),
-                        'A'...'z' => read_term(tokens, pos).unwrap(),
-                        _ => unimplemented!(),
-                    };
-
-                    return result;
-                }
-            };
-
-            Ok(Sexp::Cons { car: Box::new(seek()), cdr: Box::new(seek())})
-        }
-
-        let mut pos = 0;
-        let (c, _) = peek(tokens, &pos).unwrap();
-        let r =
-            if c == '(' { read_list(tokens, &mut pos) }
-            else { read_term(tokens, &mut pos) };
-
-        r
-    }
-}
+mod parse;
 
 
 #[cfg(test)]
 mod tests {
     use ::Sexp;
-    /// Recursively expand an abbreviated s-expression format to it's full Rust struct representation.
+
+    /// Recursively expand an abbreviated s-expression format to it's full Rust
+    /// struct representation.
     macro_rules! expand_sexp {
         () => {{ Sexp::Nil }};
         (atom[$string:expr]) => {{ Sexp::Atom(String::from($string)) }};
-        (cons [ car[ $car:tt ] cdr[ $cdr:tt ] ]) => {{
-            Sexp::Cons { car: Box::new(expand_sexp!($car)), cdr: Box::new(expand_sexp!($cdr))}
-        }};
-        (cons [ car[ $($car:tt)* ] cdr[ $($cdr:tt)* ] ]) => {{
-            Sexp::Cons { car: Box::new(expand_sexp!($($car)*)), cdr: Box::new(expand_sexp!($($cdr)*))}
+        (cons [ car[ $($car:tt)* ], cdr[ $($cdr:tt)* ] ]) => {{
+            Sexp::Cons { car: Box::new(expand_sexp!($($car)*)),
+                         cdr: Box::new(expand_sexp!($($cdr)*))}
         }};
     }
 
-    #[test]
-    fn test_sexp_reader() {
-        assert_eq!(
-            Sexp::read("(a b (c (d)))").unwrap(),
-            expand_sexp!(
-                cons[
-                    car[cons[car[atom["a"]]
-                             cdr[atom["b"]]]]
-                        cdr[cons[car[atom["c"]] cdr[cons[car[atom["d"]] cdr[]] ]]]])
-        )
-    }
+    // #[test]
+    // fn test_sexp_reader() {
+    //     let result = Sexp::read("(a b (c (d)))").unwrap();
+    //     assert_eq!(result,
+    //                expand_sexp!(
+    //                    cons[
+    //                        car[cons[car[atom["a"]],
+    //                                 cdr[atom["b"]]]],
+    //                        cdr[cons[car[atom["c"]],
+    //                                 cdr[cons[
+    //                                     car[atom["d"]],
+    //                                     cdr[]]]]]]))
+    // }
+
+    // #[test]
+    // fn test_simple_sexp_reader() {
+    //     let result = Sexp::read("(a b c)").unwrap();
+    //     assert_eq!(result,
+    //                expand_sexp!(
+    //                    cons[
+    //                        car[atom["a"]],
+    //                        cdr[cons[
+    //                            car[atom["b"]],
+    //                            cdr[cons[
+    //                                car[atom["c"]],
+    //                                cdr[]]]]]]
+    //                ))
+    // }
 }
