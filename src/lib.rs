@@ -61,6 +61,10 @@
 //!
 //! println!("Colorado's Capital is: {}", decoded.get("Colorado"))
 //! ```
+
+
+
+#![feature(box_patterns)]
 /// An s-expression is either an atom or a list of s-expressions. This is
 /// similar to the data format used by lisp.
 #[derive(PartialEq, PartialOrd, Clone, Debug)]
@@ -86,6 +90,43 @@ impl Sexp {
     }
 }
 
+impl Sexp {
+    //  
+    pub fn car(self) -> Option<Sexp> {
+        match self {
+            Sexp::Cons { car: box car, cdr: _ } => Some(car),
+            _ => None
+        }
+    }
+
+    pub fn cdr(self) -> Option<Sexp> {
+        match self {
+            Sexp::Cons { car: _, cdr: box cdr } => Some(cdr),
+            _ => None
+        }
+    }
+
+    pub fn cadr(self) -> Option<Sexp> {
+        match self.cdr() {
+            Some(cdr @ Sexp::Cons {car: _, cdr: _}) => cdr.car(),
+            _ => None
+        }
+    }
+
+    pub fn cddr(self) -> Option<Sexp> {
+        match self.cdr() {
+            Some(cdr @ Sexp::Cons {car: _, cdr: _}) => cdr.cdr(),
+            _ => None
+        }
+    }
+
+    // pub fn cons(car: Sexp, cdr: Sexp) -> Sexp {
+    //     Sexp::Cons {
+    //         car: Box::new(car),
+    //         cdr: Box::new(cdr)
+    //     }
+    // }
+}
 
 
 #[cfg(test)]
