@@ -12,16 +12,17 @@ pub enum Sexp {
     Cons { car: Box<Sexp>, cdr: Box<Sexp> }
 }
 
+mod parse;
 
-#[derive(Clone, Debug)]
-pub enum ReadSexpError {
-    InvalidTerminal,
-    UnknownSymbol,
-    ParseIntError,
-    PairingSymbol
+use parse::Parser;
+
+impl Sexp {
+    pub fn from_str(s: &str) -> Sexp {
+        let mut p = Parser::new(s.chars());
+        p.parse_value().unwrap()
+    }
 }
 
-mod parse;
 
 
 #[cfg(test)]
@@ -41,7 +42,7 @@ mod tests {
 
     // #[test]
     // fn test_sexp_reader() {
-    //     let result = Sexp::read("(a b (c (d)))").unwrap();
+    //     let result = Sexp::from_str("(a b (c (d)))").unwrap();
     //     assert_eq!(result,
     //                expand_sexp!(
     //                    cons[

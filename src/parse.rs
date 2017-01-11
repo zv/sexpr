@@ -3,7 +3,7 @@
 use Sexp;
 
 /// The errors that can arise while parsing a S-expression stream.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ErrorCode {
     InvalidSyntax,
     InvalidNumber,
@@ -12,9 +12,11 @@ pub enum ErrorCode {
     UnexpectedEndOfHexEscape,
     EOFWhileParsingList,
     EOFWhileParsingValue,
+    EOFWhileParsingNumeric,
     TrailingCharacters,
 }
 
+#[derive(Debug)]
 pub enum ParserError {
     ///         msg,      line,   col
     SyntaxError(ErrorCode, usize, usize),
@@ -94,14 +96,21 @@ impl<T: Iterator<Item = char>> Parser<T> {
     }
 
     fn parse_numeric(&mut self) -> ParseResult {
+        println!("Got to parse numeric");
         let mut result = String::new();
+        result.push(self.ch.unwrap());;
         let mut is_float = false;
 
-        while let Some(ch) = self.next_char() {
-            if self.ch_is('.') { is_float = true; }
-            result.push(ch);
+        loop {
+            match self.next_char() {
+                Some('.') => is_float = true,
+                ch @ Some('0' ... '9') => result.push(ch.unwrap()),
+                Some(_) => break,
+                None => return self.error(EOFWhileParsingNumeric)
+            };
         }
 
+        println!("result: {}", result);
         if is_float {
             let n = result.parse::<f64>();
             match n {
@@ -120,14 +129,13 @@ impl<T: Iterator<Item = char>> Parser<T> {
     fn parse_list(&mut self) -> ParseResult {
         // skip whitespace
         self.parse_whitespace();
-
         match self.ch {
             Some('.') => {
                 self.bump();
                 self.parse_value()
             },
             // The end of a list is defined as #nil
-            Some(')') | Some(']') if self.accept_brackets() => Ok(Sexp::Nil),
+            Some(')') => Ok(Sexp::Nil),
             Some(_ch) => {
                 // parse a value, put it in car.
                 Ok(Sexp::Cons {
@@ -135,15 +143,16 @@ impl<T: Iterator<Item = char>> Parser<T> {
                     cdr: Box::new(self.parse_list()?)
                 })
             }
-            None => unimplemented!()
+            None => Ok(Sexp::Nil)
         }
     }
 
-    fn parse_value(&mut self) -> ParseResult {
+    pub fn parse_value(&mut self) -> ParseResult {
         if self.eof() { return self.error(EOFWhileParsingValue); }
 
+        println!("self.ch:{:?}", self.ch);
         match self.ch {
-            Some('(') | Some('[') if self.accept_brackets() => {
+            Some('(') => {
                 self.bump();
                 self.parse_list()
             },
@@ -156,7 +165,8 @@ impl<T: Iterator<Item = char>> Parser<T> {
                 //     parse_canonical_value()
                 // }
                 // self.parse_atom()
-                unimplemented!()
+                Ok(Sexp::Nil)
+                // unimplemented!()
             },
             None => self.error(EOFWhileParsingValue)
         }
