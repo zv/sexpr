@@ -52,6 +52,10 @@ pub struct Parser<T> {
 
 type ParseResult = Result<Sexp, ParserError>;
 
+fn debug(s: &str) {
+    println!("{}", s);
+}
+
 impl<T: Iterator<Item = char>> Parser<T> {
 
     pub fn new(reader: T) -> Parser<T> {
@@ -150,6 +154,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
                     None => unreachable!()
                 }
             }
+
         }
 
     }
@@ -163,7 +168,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
         loop {
             match self.next_char() {
                 Some('.') => is_float = true,
-                ch @ Some('0' ... '9') => result.push(ch.unwrap()),
+                Some(ch @ '0' ... '9') => result.push(ch),
                 Some(_) => break,
                 None => return self.error(EOFWhileParsingNumeric)
             };
@@ -216,12 +221,9 @@ impl<T: Iterator<Item = char>> Parser<T> {
             },
             // Some(')') | Some(']') if self.config.SquareBrackets => (),
             Some('-') | Some('0' ... '9') => self.parse_numeric(),
-            // Some('"') => self.parse_string(),
+            Some('"') => self.parse_string(),
             // Some('#') if self.config.HexEscapes => (),
-            Some(ch) => {
-                // if (self.accept_canonical) {
-                //     parse_canonical_value()
-                // }
+            Some(_ch) => {
                 self.parse_atom()
             },
             None => self.error(EOFWhileParsingValue)
