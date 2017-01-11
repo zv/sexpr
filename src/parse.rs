@@ -7,12 +7,14 @@ use Sexp;
 pub enum ErrorCode {
     InvalidSyntax,
     InvalidNumber,
+    InvalidEscape,
     UnrecognizedBase64,
     UnrecognizedHex,
     UnexpectedEndOfHexEscape,
     EOFWhileParsingList,
     EOFWhileParsingValue,
     EOFWhileParsingNumeric,
+    ControlCharacterInString,
     TrailingCharacters,
 }
 
@@ -95,8 +97,45 @@ impl<T: Iterator<Item = char>> Parser<T> {
             self.ch_is('\r') { self.bump(); }
     }
 
+    fn parse_string(&mut self) -> ParseResult {
+        debug("Parsing String");
+        let mut result = String::new();
+        let mut escape = false;
+
+        loop {
+            if escape {
+                // do escape bullshit
+                match self.ch_or_null() {
+                    '"' => result.push('"'),
+                    '\\' => result.push('\\'),
+                    '/' => result.push('/'),
+                    'b' => result.push('\x08'),
+                    'f' => result.push('\x0c'),
+                    'n' => result.push('\n'),
+                    'r' => result.push('\r'),
+                    't' => result.push('\t'),
+                    _ => return self.error(InvalidEscape),
+                }
+            } else if self.ch_is('\\') {
+                escape = true;
+            } else {
+                match self.ch {
+                    Some('"') => {
+                        self.bump();
+                        return Ok(Sexp::Atom(result));
+                    },
+                    Some(ch) if ch <= '\u{1F}' =>
+                        return self.error(ControlCharacterInString),
+                    Some(ch) => result.push(ch),
+                    None => unreachable!()
+                }
+            }
+        }
+
+    }
+
     fn parse_numeric(&mut self) -> ParseResult {
-        println!("Got to parse numeric");
+        debug("Parsing Numeric");
         let mut result = String::new();
         result.push(self.ch.unwrap());;
         let mut is_float = false;
@@ -110,7 +149,6 @@ impl<T: Iterator<Item = char>> Parser<T> {
             };
         }
 
-        println!("result: {}", result);
         if is_float {
             let n = result.parse::<f64>();
             match n {
@@ -118,9 +156,9 @@ impl<T: Iterator<Item = char>> Parser<T> {
                 Err(_) => self.error(InvalidNumber)
             }
         } else {
-            let n = result.parse::<u64>();
+            let n = result.parse::<i64>();
             match n {
-                Ok(num) => Ok(Sexp::U64(num)),
+                Ok(num) => Ok(Sexp::I64(num)),
                 Err(_) => self.error(InvalidNumber)
             }
         }
@@ -150,23 +188,21 @@ impl<T: Iterator<Item = char>> Parser<T> {
     pub fn parse_value(&mut self) -> ParseResult {
         if self.eof() { return self.error(EOFWhileParsingValue); }
 
-        println!("self.ch:{:?}", self.ch);
+        debug(&format!("self.ch: {:?}", self.ch));
         match self.ch {
             Some('(') => {
                 self.bump();
                 self.parse_list()
             },
             // Some(')') | Some(']') if self.config.SquareBrackets => (),
-            Some('0' ... '9') => self.parse_numeric(),
+            Some('-') | Some('0' ... '9') => self.parse_numeric(),
             // Some('"') => self.parse_string(),
             // Some('#') if self.config.HexEscapes => (),
-            Some(_ch) => {
+            Some(ch) => {
                 // if (self.accept_canonical) {
                 //     parse_canonical_value()
                 // }
-                // self.parse_atom()
-                Ok(Sexp::Nil)
-                // unimplemented!()
+                self.parse_atom()
             },
             None => self.error(EOFWhileParsingValue)
         }
