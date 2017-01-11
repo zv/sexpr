@@ -143,9 +143,9 @@ impl<T: Iterator<Item = char>> Parser<T> {
         let mut is_float = false;
 
         loop {
+            if self.ch_is('.') { is_float = true }
             match self.next_char() {
-                Some('.') => is_float = true,
-                Some(ch @ '0' ... '9') => result.push(ch),
+                Some(ch @ '.') | Some(ch @ '0' ... '9') => result.push(ch),
                 Some(_) => break,
                 None => return self.error(EOFWhileParsingNumeric)
             };
