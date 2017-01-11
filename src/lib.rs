@@ -65,12 +65,14 @@
 
 
 #![feature(box_patterns)]
+use std::str::FromStr;
+
 /// An s-expression is either an atom or a list of s-expressions. This is
 /// similar to the data format used by lisp.
 #[derive(PartialEq, PartialOrd, Clone, Debug)]
 pub enum Sexp {
     Nil,
-    Atom(String),
+    Symbol(String),
     String(String),
     I64(i64),
     U64(u64),
@@ -80,13 +82,17 @@ pub enum Sexp {
 }
 
 mod parse;
+mod error;
 
 use parse::Parser;
+use error::ParserError;
 
-impl Sexp {
-    pub fn from_str(s: &str) -> Sexp {
+impl FromStr for Sexp {
+    type Err = ParserError;
+
+    fn from_str(s: &str) -> Result<Sexp, Self::Err> {
         let mut p = Parser::new(s.chars());
-        p.parse_value().unwrap()
+        p.parse_value()
     }
 }
 
@@ -137,7 +143,7 @@ mod tests {
     /// struct representation.
     macro_rules! expand_sexp {
         () => {{ Sexp::Nil }};
-        (atom[$string:expr]) => {{ Sexp::Atom(String::from($string)) }};
+        (atom[$string:expr]) => {{ Sexp::Symbol(String::from($string)) }};
         (cons [ car[ $($car:tt)* ], cdr[ $($cdr:tt)* ] ]) => {{
             Sexp::Cons { car: Box::new(expand_sexp!($($car)*)),
                          cdr: Box::new(expand_sexp!($($cdr)*))}
