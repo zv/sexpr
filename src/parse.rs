@@ -178,12 +178,16 @@ impl<T: Iterator<Item = char>> Parser<T> {
             Some(')') => Ok(Sexp::Nil),
             Some(_ch) => {
                 // parse a value, put it in car.
+
+                // This code could be really funky, might want to check for EOF
+                // after parse_value
                 Ok(Sexp::Cons {
                     car: Box::new(self.parse_value()?),
                     cdr: Box::new(self.parse_list()?)
                 })
             }
-            None => self.error(EOFWhileParsingList)
+            // 
+            None => Ok(Sexp::Nil)
         }
     }
 
