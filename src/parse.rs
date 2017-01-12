@@ -7,14 +7,19 @@ use error::ErrorCode::*;
 use error::ParserError;
 use error::ParserError::*;
 
+// Contains the configuration parameters to the parser
+#[derive(Clone, Copy, Debug)]
 pub struct ParseConfig {
     // Escape #number# to it's appropriate hex decoding.
-    allow_hex_escapes: bool,
+    pub hex_escapes: bool,
     // Accept '[' and ']' in addition to parenthesis
-    accepts_square_brackets: bool,
+    pub square_brackets: bool,
     // Should atoms be read case-insensitively?
-    case_insensitive: bool,
+    pub case_sensitive_atoms: bool,
 }
+/// Configuration for RFC 4648 standard base64 encoding
+pub static STANDARD: ParseConfig =
+    ParseConfig {hex_escapes: true, square_brackets: true, case_sensitive_atoms: false};
 
 /// A streaming S-Exp parser implemented as an iterator of `SexpEvent`, consuming
 /// an iterator of char.
@@ -23,7 +28,7 @@ pub struct Parser<T> {
     ch: Option<char>,
     line: usize,
     col: usize,
-    configuration: Option<ParseConfig>,
+    configuration: ParseConfig,
 }
 
 type ParseResult = Result<Sexp, ParserError>;
@@ -37,7 +42,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
             ch: Some('\x00'),
             line: 1,
             col: 0,
-            configuration: None
+            configuration: STANDARD
         };
         p.bump();
 
@@ -57,10 +62,6 @@ impl<T: Iterator<Item = char>> Parser<T> {
 
     fn error(&mut self, reason: ErrorCode) -> ParseResult {
         Err(SyntaxError(reason, self.line, self.col))
-    }
-
-    fn accept_brackets(&self) -> bool {
-        false
     }
 
     fn next_char(&mut self) -> Option<char> { self.bump(); self.ch }
