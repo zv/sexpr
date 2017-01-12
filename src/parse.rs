@@ -190,6 +190,8 @@ impl<T: Iterator<Item = char>> Parser<T> {
     pub fn parse_value(&mut self) -> ParseResult {
         if self.eof() { return self.error(EOFWhileParsingValue); }
 
+        self.parse_whitespace();
+
         debug(&format!("self.ch: {:?}", self.ch));
         match self.ch {
             Some('(') => {

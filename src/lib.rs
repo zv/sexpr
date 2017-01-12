@@ -117,7 +117,9 @@ impl fmt::Display for Sexp {
                         _ => {
                             match cdr {
                                 &Nil => format!("{}", fmt_driver(car)),
-                                _ => format!("{} {}", fmt_driver(car), fmt_driver(cdr))
+                                &Cons { car: ref cadr, cdr: ref cddr } =>
+                                    format!("{} {}", fmt_driver(car), fmt_driver(cdr)),
+                                _ => format!("{} . {}", fmt_driver(car), fmt_driver(cdr)),
                             }
                         }
                     }
