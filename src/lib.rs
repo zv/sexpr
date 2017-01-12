@@ -42,7 +42,7 @@
 //!
 //! # Examples of use
 //!
-//! ```rust
+//! ```ignore
 //! use std::collections::BTreeMap;
 //!
 //! let values = "((New York . Albany)
@@ -96,28 +96,31 @@ use self::Sexp::*;
 
 impl fmt::Display for Sexp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+
+
+        #[allow(useless_format, unknown_lints)]
         fn fmt_driver(sexp: &Sexp) -> String {
-            match sexp {
-                &Nil => format!("#nil"),
-                &Symbol(ref sym) => format!("{}", sym),
-                &String(ref string) => format!("\"{}\"", string),
-                &F64(num) => format!("{}", num),
-                &I64(num) => format!("{}", num),
-                &U64(num) => format!("{}", num),
-                &Boolean(true) => format!("#t"),
-                &Boolean(false) => format!("#f"),
+            match *sexp {
+                Nil => format!("#nil"),
+                Symbol(ref sym) => format!("{}", sym),
+                String(ref string) => format!("\"{}\"", string),
+                F64(num) => format!("{}", num),
+                I64(num) => format!("{}", num),
+                U64(num) => format!("{}", num),
+                Boolean(true) => format!("#t"),
+                Boolean(false) => format!("#f"),
                 // Due to the complex rules surrounding how a 'list' of
                 // s-expressions is stringified, there is a lot of logic here
                 // for determining the inclusion of surrounding parenthesis
-                &Cons { box ref car, box ref cdr } => {
-                    match car {
-                        &Sexp::Cons { car: ref caar, cdr: ref cdar } => {
+                Cons { box ref car, box ref cdr } => {
+                    match *car {
+                        Sexp::Cons { car: ref caar, cdr: ref cdar } => {
                             format!("({} {})", fmt_driver(caar), fmt_driver(cdar))
                         },
                         _ => {
-                            match cdr {
-                                &Nil => format!("{}", fmt_driver(car)),
-                                &Cons { car: ref cadr, cdr: ref cddr } =>
+                            match *cdr {
+                                Nil => format!("{}", fmt_driver(car)),
+                                Cons { .. } =>
                                     format!("{} {}", fmt_driver(car), fmt_driver(cdr)),
                                 _ => format!("{} . {}", fmt_driver(car), fmt_driver(cdr)),
                             }
@@ -134,28 +137,28 @@ impl fmt::Display for Sexp {
 impl Sexp {
     pub fn car(self) -> Option<Sexp> {
         match self {
-            Sexp::Cons { car: box car, cdr: _ } => Some(car),
+            Sexp::Cons { car: box car, .. } => Some(car),
             _ => None
         }
     }
 
     pub fn cdr(self) -> Option<Sexp> {
         match self {
-            Sexp::Cons { car: _, cdr: box cdr } => Some(cdr),
+            Sexp::Cons { cdr: box cdr, .. } => Some(cdr),
             _ => None
         }
     }
 
     pub fn cadr(self) -> Option<Sexp> {
         match self.cdr() {
-            Some(cdr @ Sexp::Cons {car: _, cdr: _}) => cdr.car(),
+            Some(cdr @ Sexp::Cons { .. }) => cdr.car(),
             _ => None
         }
     }
 
     pub fn cddr(self) -> Option<Sexp> {
         match self.cdr() {
-            Some(cdr @ Sexp::Cons {car: _, cdr: _}) => cdr.cdr(),
+            Some(cdr @ Sexp::Cons { .. }) => cdr.cdr(),
             _ => None
         }
     }

@@ -31,6 +31,7 @@ pub enum ParserError {
 }
 
 /// Returns a readable error string for a given error code.
+#[allow(dead_code)]
 fn error_str(error: ErrorCode) -> &'static str {
     match error {
         InvalidSyntax => "invalid syntax",

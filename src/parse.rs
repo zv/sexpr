@@ -40,7 +40,8 @@ impl<T: Iterator<Item = char>> Parser<T> {
             configuration: None
         };
         p.bump();
-        return p;
+
+        p
     }
 
     fn bump(&mut self) {
@@ -186,7 +187,6 @@ impl<T: Iterator<Item = char>> Parser<T> {
                     cdr: Box::new(self.parse_list()?)
                 })
             }
-            // 
             None => Ok(Sexp::Nil)
         }
     }
