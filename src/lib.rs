@@ -175,6 +175,7 @@ impl Sexp {
 #[cfg(test)]
 mod tests {
     use ::Sexp;
+    use std::str::FromStr;
 
     /// Recursively expand an abbreviated s-expression format to it's full Rust
     /// struct representation.
@@ -187,32 +188,39 @@ mod tests {
         }};
     }
 
-    // #[test]
-    // fn test_sexp_reader() {
-    //     let result = Sexp::from_str("(a b (c (d)))").unwrap();
-    //     assert_eq!(result,
-    //                expand_sexp!(
-    //                    cons[
-    //                        car[cons[car[atom["a"]],
-    //                                 cdr[atom["b"]]]],
-    //                        cdr[cons[car[atom["c"]],
-    //                                 cdr[cons[
-    //                                     car[atom["d"]],
-    //                                     cdr[]]]]]]))
-    // }
+    #[test]
+    fn test_sexp_parser_simple() {
+        let result = Sexp::from_str("(a b c)").unwrap();
+        assert_eq!(result,
+                   expand_sexp!(
+                       cons[
+                           car[atom["a"]],
+                           cdr[cons[car[atom["b"]],
+                                    cdr[cons[car[atom["c"]],
+                                             cdr[]]]
+                           ]]
+                       ]
+                   ))
+    }
 
-    // #[test]
-    // fn test_simple_sexp_reader() {
-    //     let result = Sexp::read("(a b c)").unwrap();
-    //     assert_eq!(result,
-    //                expand_sexp!(
-    //                    cons[
-    //                        car[atom["a"]],
-    //                        cdr[cons[
-    //                            car[atom["b"]],
-    //                            cdr[cons[
-    //                                car[atom["c"]],
-    //                                cdr[]]]]]]
-    //                ))
-    // }
+    #[test]
+    fn test_sexp_parser_pair() {
+        let result = Sexp::from_str("(a . b)").unwrap();
+        assert_eq!(result,
+                   expand_sexp!(
+                       cons[car[atom["a"]],
+                            cdr[atom["b"]]]))
+    }
+
+    #[test]
+    fn test_sexp_display_numeric() {
+        let src = "(1 (2 3 4))";
+        assert_eq!(src, format!("{}", Sexp::from_str(src).unwrap()));
+    }
+
+    #[test]
+    fn test_sexp_display_mixed_numeric() {
+        let src = "(1 2.1 3 4)";
+        assert_eq!(src, format!("{}", Sexp::from_str(src).unwrap()));
+    }
 }
