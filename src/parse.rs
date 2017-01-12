@@ -28,7 +28,7 @@ pub struct Parser<T> {
 
 type ParseResult = Result<Sexp, ParserError>;
 
-fn debug(s: &str) { println!("{}", s) }
+fn debug(s: &str) { if false {println!("{}", s)} }
 
 impl<T: Iterator<Item = char>> Parser<T> {
     pub fn new(reader: T) -> Parser<T> {
@@ -80,10 +80,11 @@ impl<T: Iterator<Item = char>> Parser<T> {
         loop {
             // In cases with large number of or-cases, it's more convienent to
             // unwrap the character ahead of time and check for the null byte as
-            // a sentinel for EOF.
+            // a sentinel for EOF, this of course prevents us from checking for
+            // an actual null byte, which is valid in a s-expression however.
             match self.ch_or_null() {
                 ch @ 'a' ... 'z' => result.push(ch),
-                '\t' | ' ' | '\n' => {
+                '\t' | ' ' | '\n' | ')' => {
                     self.bump();
                     return Ok(Sexp::Symbol(result))
                 },
@@ -104,7 +105,8 @@ impl<T: Iterator<Item = char>> Parser<T> {
             self.bump();
 
             if escape {
-                // do escape bullshit
+                // This implements a subset of the valid escapes that many
+                // Scheme's read implementation guarantees
                 match self.ch {
                     Some('"')  => result.push('"'),
                     Some('\\') => result.push('\\'),
@@ -132,14 +134,12 @@ impl<T: Iterator<Item = char>> Parser<T> {
                     None => unreachable!()
                 }
             }
-
         }
     }
 
     fn parse_numeric(&mut self) -> ParseResult {
         debug("Parsing Numeric");
-        let mut result = String::new();
-        result.push(self.ch.unwrap());;
+        let mut result: String = self.ch.unwrap().to_string();
         let mut is_float = false;
 
         loop {
