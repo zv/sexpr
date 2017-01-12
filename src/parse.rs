@@ -139,6 +139,46 @@ impl<T: Iterator<Item = char>> Parser<T> {
         }
     }
 
+    fn parse_hexadecimal(&mut self) -> ParseResult {
+        debug("Parsing Hexadecimal");
+        let mut accumulator: u64 = 0; // Could be shortened to acc ...
+        let mut length: usize = 0;
+
+        if self.next_char() != Some('x') {
+            return self.error(UnrecognizedHex);
+        }
+
+        while !self.eof() {
+            let significand: u64;
+            // Take out the last digit, shift the base by 10 and add the
+            // least significant digit
+            match self.next_char() {
+                Some(c @ '0' ... '9') =>
+                    significand = (c as u8 - b'0') as u64,
+                Some(c @ 'a' ... 'f') =>
+                    significand = (c as u8 - b'a') as u64 + 10,
+                Some(c @ 'A' ... 'F') =>
+                    significand = (c as u8 - b'A') as u64 + 10,
+                // DRYing this out is tough: Patterns are a 'metafeature' and
+                // can't be enconded in a variable - a function could perhaps
+                // replace this.
+                Some(' ') | Some('\t') | Some('\n') | Some(')') => break,
+                _ => return self.error(InvalidNumber)
+            }
+
+            length += 1;
+            accumulator = accumulator * 10 + significand;
+        }
+
+        if length == 0 {
+            // a length of 0 means we've encountered "#x" - Invalid
+            self.error(UnexpectedEndOfHexEscape)
+        } else {
+            Ok(Sexp::U64(accumulator))
+        }
+    }
+
+
     fn parse_numeric(&mut self) -> ParseResult {
         debug("Parsing Numeric");
         let mut result: String = self.ch.unwrap().to_string();
@@ -192,6 +232,9 @@ impl<T: Iterator<Item = char>> Parser<T> {
         }
     }
 
+    // Parsing begins at `parse_value` and functions that can build recursive
+    // structures may use parse_value to select it's next data element (it's
+    // `car`).
     pub fn parse_value(&mut self) -> ParseResult {
         if self.eof() { return self.error(EOFWhileParsingValue); }
 
@@ -199,13 +242,15 @@ impl<T: Iterator<Item = char>> Parser<T> {
 
         debug(&format!("self.ch: {:?}", self.ch));
         match self.ch {
-            Some('(') => {
+            Some('(') | Some('[') => {
                 self.bump();
                 self.parse_list()
             },
-            Some(')') => self.error(UnexpectedEndOfList),
+            Some(')') | Some(']') => self.error(UnexpectedEndOfList),
             Some('-') | Some('0' ... '9') => self.parse_numeric(),
             Some('"') => self.parse_string(),
+            Some('#') if self.configuration.hex_escapes =>
+                self.parse_hexadecimal(),
             Some(_) => self.parse_atom(),
             None => self.error(EOFWhileParsingValue)
         }

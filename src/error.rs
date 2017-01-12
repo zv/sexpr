@@ -34,11 +34,11 @@ pub enum ParserError {
 #[allow(dead_code)]
 fn error_str(error: ErrorCode) -> &'static str {
     match error {
-        InvalidSyntax => "invalid syntax",
-        InvalidNumber => "invalid number",
-        UnrecognizedBase64 => "Base64-encoded string can only include valid base64 characters",
-        EOFWhileParsingList => "EOF While parsing list",
+        InvalidSyntax         => "invalid syntax",
+        InvalidNumber         => "invalid number",
+        UnrecognizedBase64    => "Base64-encoded string can only include valid base64 characters",
+        EOFWhileParsingList   => "EOF While parsing list",
         EOFWhileParsingString => "EOF While parsing string",
-        _ => "something else entirely"
+        _                     => "something else entirely"
     }
 }
