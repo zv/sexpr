@@ -218,7 +218,10 @@ impl<T: Iterator<Item = char>> Parser<T> {
                     result.push(self.parse_value()?);
                     return Ok(Sexp::Pair(result));
                 },
-                Some(')') => break,
+                Some(')') => {
+                    self.bump();
+                    break;
+                },
                 Some(_) => {
                     // parse a value, put it in car.
 
