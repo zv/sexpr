@@ -67,14 +67,14 @@ use std::string::String;
 /// similar to the data format used by lisp.
 #[derive(PartialEq, PartialOrd, Clone, Debug)]
 pub enum Sexp {
-    Nil,
     Symbol(String),
     String(String),
     I64(i64),
     U64(u64),
     F64(f64),
     Boolean(bool),
-    Cons { car: Box<Sexp>, cdr: Box<Sexp> }
+    Pair(Vec<Sexp>),
+    List(Vec<Sexp>)
 }
 
 mod parse;
@@ -96,49 +96,33 @@ use self::Sexp::*;
 
 impl fmt::Display for Sexp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
-
-        #[allow(useless_format, unknown_lints)]
-        fn fmt_driver(sexp: &Sexp) -> String {
-            match *sexp {
-                Nil => format!("#nil"),
-                Symbol(ref sym) => format!("{}", sym),
-                String(ref string) => format!("\"{}\"", string),
-                F64(num) => format!("{}", num),
-                I64(num) => format!("{}", num),
-                U64(num) => format!("{}", num),
-                Boolean(true) => format!("#t"),
-                Boolean(false) => format!("#f"),
-                // Due to the complex rules surrounding how a 'list' of
-                // s-expressions is stringified, there is a lot of logic here
-                // for determining the inclusion of surrounding parenthesis
-                Cons { box ref car, box ref cdr } => {
-                    match *car {
-                        Sexp::Cons { car: ref caar, cdr: ref cdar } => {
-                            format!("({} {})", fmt_driver(caar), fmt_driver(cdar))
-                        },
-                        _ => {
-                            match *cdr {
-                                Nil => format!("{}", fmt_driver(car)),
-                                Cons { .. } =>
-                                    format!("{} {}", fmt_driver(car), fmt_driver(cdr)),
-                                _ => format!("{} . {}", fmt_driver(car), fmt_driver(cdr)),
-                            }
-                        }
-                    }
-                }
+        match *self {
+            Symbol(ref sym)    => write!(f, "{}", sym),
+            String(ref string) => write!(f, "\"{}\"", string),
+            F64(num)           => write!(f, "{}", num),
+            I64(num)           => write!(f, "{}", num),
+            U64(num)           => write!(f, "{}", num),
+            Boolean(true)      => write!(f, "#t"),
+            Boolean(false)     => write!(f, "#f"),
+            Pair(ref elts)     => write!(f, "({} . {})", elts[0], elts[1]),
+            List(ref elts)     => {
+                write!(f, "({})",
+                       elts // The following code joins the elements with a space separator
+                       .iter()
+                       .fold("".to_string(),
+                             |a,b| if a.len() > 0 { a + " "}
+                             else {a} + &b.to_string()))
             }
         }
-
-        write!(f, "({})", fmt_driver(self))
     }
 }
 
+/*
 impl Sexp {
-    pub fn car(self) -> Option<Sexp> {
-        match self {
-            Sexp::Cons { car: box car, .. } => Some(car),
-            _ => None
+pub fn car(self) -> Option<Sexp> {
+match self {
+Sexp::Cons { car: box car, .. } => Some(car),
+_ => None
         }
     }
 
@@ -224,3 +208,4 @@ mod tests {
         assert_eq!(src, format!("{}", Sexp::from_str(src).unwrap()));
     }
 }
+ */

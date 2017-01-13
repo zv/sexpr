@@ -86,10 +86,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
             // an actual null byte, which is valid in a s-expression however.
             match self.ch_or_null() {
                 ch @ 'a' ... 'z' => result.push(ch),
-                '\t' | ' ' | '\n' | ')' => {
-                    self.bump();
-                    return Ok(Sexp::Symbol(result))
-                },
+                '\t' | ' ' | '\n' | ')' => return Ok(Sexp::Symbol(result)),
                 // We've encountered an EOF
                 '\x00' => return self.error(EOFWhileParsingAtom),
                 _ => return self.error(InvalidAtom),
@@ -139,6 +136,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
         }
     }
 
+    /// There is
     fn parse_hexadecimal(&mut self) -> ParseResult {
         debug("Parsing Hexadecimal");
         let mut accumulator: u64 = 0; // Could be shortened to acc ...
@@ -209,27 +207,34 @@ impl<T: Iterator<Item = char>> Parser<T> {
     }
 
     fn parse_list(&mut self) -> ParseResult {
-        // skip whitespace
-        self.parse_whitespace();
-        match self.ch {
-            Some('.') => {
-                self.bump();
-                self.parse_value()
-            },
-            // The end of a list is defined as #nil
-            Some(')') => Ok(Sexp::Nil),
-            Some(_ch) => {
-                // parse a value, put it in car.
+        let mut result: Vec<Sexp> = vec![];
 
-                // This code could be really funky, might want to check for EOF
-                // after parse_value
-                Ok(Sexp::Cons {
-                    car: Box::new(self.parse_value()?),
-                    cdr: Box::new(self.parse_list()?)
-                })
+        loop {
+            self.parse_whitespace();
+            match self.ch {
+                // The end of a list is defined as #nil
+                Some('.') => {
+                    self.bump();
+                    result.push(self.parse_value()?);
+                    return Ok(Sexp::Pair(result));
+                },
+                Some(')') => break,
+                Some(_) => {
+                    // parse a value, put it in car.
+
+                    // This code could be really funky, might want to check for EOF
+                    // after parse_value
+                    result.push(self.parse_value()?);
+                    // If we'v
+                    if self.eof() {
+                        break;
+                    }
+                }
+                None => return self.error(EOFWhileParsingList),
             }
-            None => Ok(Sexp::Nil)
         }
+
+        Ok(Sexp::List(result))
     }
 
     // Parsing begins at `parse_value` and functions that can build recursive
