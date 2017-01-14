@@ -27,15 +27,15 @@
 
   It is a list of length three: 
 
-  - the octet-string "snicker"
+  - the octet-string "=snicker="
 
-  - the octet-string "abc"
+  - the octet-string "=abc="
 
   - a sub-list containing two elements:
-    - the hexadecimal constant #03#
-    - the base-64 constant |YWJj| (which is the same as "abc")
+    - the hexadecimal constant =#03#=
+    - the base-64 constant =|YWJj|= (which is the same as "=abc=")
   
-** Goals
+** Should I use S-expressions as my serialization format?
    Despite rapidly shifting technological landscapes and even faster changing
    attitudes about 'proper' programming. S-expressions, and their many variants,
    remain ([[http://www-formal.stanford.edu/jmc/recursive/recursive.html][as one of the oldest general encoding formats still in use today]]).
@@ -51,9 +51,56 @@
    - Canonicalization ::  They produce a unique "canonical" form of an S-expression, for digital signature purposes.
    - Efficiency :: S-expressions should admit in-memory representations that allow efficient processing.   
   
-** Convert 
-* TODO
-  - Convert Arrays of unsigned and signed ints, strings, etc to regular lists
-  - Convert hash tables to alists
-  - Implement pair-syntax.
+** Parsing S-expression variants
+   
+*** Included Configuration Options
+**** Comments
+     Line comments can be enabled when parsing s-expressions by setting
+     ~allow_comments = Some(&["#", ";"])~.
 
+     This ignores the rest of the stream until encountering a newline or EOF,
+     this does *not* comment out interior s-expressions like proposals like [[http://srfi.schemers.org/srfi-62/srfi-62.html][SRFI
+     62]].
+
+**** Keywords
+     Many Scheme implementations assign a special meaning to atoms beginning with
+     =#:= or =:=, sexpr can parse these as 'keywords' or they can be treated as valid
+     starting characters to an ordinary symbol. =(item :keyword value :keyword2 value)=
+
+     You can control this behaviour with ~ParseConfig.allow_keywords = Some(&["#", "#:"])~
+   
+**** Square Brackets
+     Some Lisp implementations and s-expressions allow square brackets (=[= and
+     =]=) to be used as an alternative bracket character.
+
+     These brackets must still themselves remain matched.
+
+     This is controlled with =ParseConfig.square_brackets = true=
+
+**** ~#b~ and ~#x~ - Specifying Radix
+     =#b= and =#x= can be used to specify binary and hexadecimal encodings of
+     the number that follows the trailing letter. 
+
+     e.x ~((two-hundred-fifty-five #xff)~ would be encoded as =List(Symbol(two-hundred-fifty-five), U64(255))=
+     Similarly, ~(sixteen #b10000))~ would be encoded as =List(Symbol(sixteen), U64(16))=
+
+     You can control if both of these are accepted with the ~ParseConfig.radix_escape~
+     option.
+
+     If ~radix_escape~ is false, the initial ~#~ character may be treated as an atom.
+
+**** ~|~ (Pipe) Character Behavior 
+     Standard decoding treats the | character as a valid starting literal to any
+     Atom, although two other options are permitted:
+
+****** /Advanced/-style
+       Rivest-style 'advanced' encodings dictate a string between two =|=
+       characters be decoded as a stream of u8 (octets) in Base64.
+
+       Use ~ParseConfig.pipe_action = ParsePipeBehavior::Base64Interior~
+
+****** SMTLIBv2
+       SMT and SAT solvers using this format use the =|= character to quote it's
+       interior, preserving line breaks and other whitespace in a Symbol.
+
+       Use ~ParseConfig.pipe_action = ParsePipeBehavior::QuoteInterior~
