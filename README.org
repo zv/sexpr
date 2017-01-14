@@ -8,10 +8,8 @@
   extensions to the format from dozens of applications, languages and protocols.
   
   - RFC 2693
-  - SMTLIB
   - SMTLIBv2
   - GPG / libgcrypt
-  - Kerberos
   - KiCad
   - Guile scheme
 
@@ -69,7 +67,7 @@
 
      You can control this behaviour with ~ParseConfig.allow_keywords = Some(&["#", "#:"])~
    
-**** Square Brackets
+**** Brackets
      Some Lisp implementations and s-expressions allow square brackets (=[= and
      =]=) to be used as an alternative bracket character.
 
@@ -77,17 +75,29 @@
 
      This is controlled with =ParseConfig.square_brackets = true=
 
-**** ~#b~ and ~#x~ - Specifying Radix
-     =#b= and =#x= can be used to specify binary and hexadecimal encodings of
-     the number that follows the trailing letter. 
+**** Radix Specification: 
+***** ~#~
+      Libgcrypt, GPG and numerous Scheme implementations allow you to enclose a
+      hexadecimal string in =#= characters: ~(q #61626364656667#)~
 
-     e.x ~((two-hundred-fifty-five #xff)~ would be encoded as =List(Symbol(two-hundred-fifty-five), U64(255))=
-     Similarly, ~(sixteen #b10000))~ would be encoded as =List(Symbol(sixteen), U64(16))=
+      You can enable this with =enclosed_hex_strings=
+    
+*****  ~#b~ and ~#x~
+      In a similar fashion, =#b= and =#x= are used to specify binary and
+      hexadecimal encodings of the number that follows the trailing letter.
 
-     You can control if both of these are accepted with the ~ParseConfig.radix_escape~
-     option.
+      ~((two-hundred-fifty-five #xff)~ would be encoded as =List(Symbol(two-hundred-fifty-five), U64(255))= 
+      Similarly, ~(sixteen #b10000))~ would be encoded as =List(Symbol(sixteen), U64(16))=
 
-     If ~radix_escape~ is false, the initial ~#~ character may be treated as an atom.
+      You can control if both of these are accepted with the ~radix_escape~ option.
+
+***** Both
+      When both of these options are enabled in tandem, sexpr will use the
+      following character to determine the variety of radix specification.
+
+***** Neither
+      If ~radix_escape~ is false, the initial ~#~ character will be treated as
+      an atom.
 
 **** ~|~ (Pipe) Character Behavior 
      Standard decoding treats the | character as a valid starting literal to any
