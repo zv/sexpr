@@ -1,53 +1,57 @@
-* sexpr
-  sexpr strives to be the canonical serialization/deserialization and general
-  manipulation format for S-expressions in Rust.
+* sexpr: A S-expression library for Rust
+  sexpr strives to be the canonical library for reading, manipulating and
+  writing S-expressions in Rust.
 
-  sexpr can read numerous variants, including "/Standard/", "/Advanced/" and
-  "/Canonical/" S-expressions. Predefined configurations for various extension
-  formats exist for the parser and serializer -- understanding various
-  extensions to the format from dozens of applications, languages and protocols.
-  
+  The parser is fully featured, performant and can be configured to read almost
+  any s-expression variant including "/Standard/", "/Advanced/" and
+  "/Canonical/" formats.
+
+  Predefined compatibility configurations exist for a dozen standards and
+  protocols including:
+
+  - Standard
   - RFC 2693
   - SMTLIBv2
   - GPG / libgcrypt
   - KiCad
+  - R6RS-compatible
   - Guile scheme
 
-  If one of these doesn't match your format, you can configure the parser
-  accordingly!
+  Individual format options can be enabled or disabled, allowing you to parse
+  virtually any variant.
 
-* Overview
-  S-expressions are data structures for representing complex data. They are
-  either primitives ("atoms") or lists of simpler S-expressions. Here is a
-  sample S-expression:
+# * Overview
+#   S-expressions are data structures for representing complex data. They are
+#   either primitives ("atoms") or lists of simpler S-expressions. Here is a
+#   sample S-expression:
 
-  ~(snicker "abc" (#03# |YWJj|))~
+#   ~(snicker "abc" (#03# |YWJj|))~
 
-  It is a list of length three: 
+#   It is a list of length three: 
 
-  - the octet-string "=snicker="
+#   - the octet-string "=snicker="
 
-  - the octet-string "=abc="
+#   - the octet-string "=abc="
 
-  - a sub-list containing two elements:
-    - the hexadecimal constant =#03#=
-    - the base-64 constant =|YWJj|= (which is the same as "=abc=")
+#   - a sub-list containing two elements:
+#     - the hexadecimal constant =#03#=
+#     - the base-64 constant =|YWJj|= (which is the same as "=abc=")
   
-** Should I use S-expressions as my serialization format?
-   Despite rapidly shifting technological landscapes and even faster changing
-   attitudes about 'proper' programming. S-expressions, and their many variants,
-   remain ([[http://www-formal.stanford.edu/jmc/recursive/recursive.html][as one of the oldest general encoding formats still in use today]]).
+# ** Should I use S-expressions as my serialization format?
+#    Despite rapidly shifting technological landscapes and even faster changing
+#    attitudes about 'proper' programming. S-expressions, and their many variants,
+#    remain ([[http://www-formal.stanford.edu/jmc/recursive/recursive.html][as one of the oldest general encoding formats still in use today]]).
 
-   In spite of numerous challengers like JSON and XML, S-expressions retain the
-   advantages laid out by early computing and internetworking pioneers:
+#    In spite of numerous challengers like JSON and XML, S-expressions retain the
+#    advantages laid out by early computing and internetworking pioneers:
  
-   - Generality :: S-expressions are good at representing arbitrary data.
-   - Readability :: it is easy for someone to examine and understand the structure of an S-expression.
-   - Economy :: S-expressions represent data compactly.
-   - Tranportability :: S-expressions are easy to transport over communication media (such as email) with unusual encoding rules.
-   - Flexibility :: S-expressions make it relatively simple to modify and extend data structures.
-   - Canonicalization ::  They produce a unique "canonical" form of an S-expression, for digital signature purposes.
-   - Efficiency :: S-expressions should admit in-memory representations that allow efficient processing.   
+#    - Generality :: S-expressions are good at representing arbitrary data.
+#    - Readability :: it is easy for someone to examine and understand the structure of an S-expression.
+#    - Economy :: S-expressions represent data compactly.
+#    - Tranportability :: S-expressions are easy to transport over communication media (such as email) with unusual encoding rules.
+#    - Flexibility :: S-expressions make it relatively simple to modify and extend data structures.
+#    - Canonicalization ::  They produce a unique "canonical" form of an S-expression, for digital signature purposes.
+#    - Efficiency :: S-expressions should admit in-memory representations that allow efficient processing.   
   
 ** Parsing S-expression variants
    
