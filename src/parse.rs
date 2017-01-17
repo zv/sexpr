@@ -216,7 +216,16 @@ impl<T: Iterator<Item = char>> Parser<T> {
                 Some('.') => {
                     self.bump();
                     result.push(self.parse_value()?);
-                    return Ok(Sexp::Pair(result));
+
+                    // We can safely assume there are at least two elts (or one elt and an empty list)
+                    match self.ch {
+                        Some(')') => {
+                            self.bump();
+                            return Ok(Sexp::new_pair(&result[0], &result[1]));
+                        }
+                        _ => return self.error(MissingCloseParen)
+                    }
+                    
                 },
                 Some(')') => {
                     self.bump();

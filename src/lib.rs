@@ -73,7 +73,7 @@ pub enum Sexp {
     U64(u64),
     F64(f64),
     Boolean(bool),
-    Pair(Vec<Sexp>),
+    Pair(ConsCell, ConsCell),
     List(Vec<Sexp>)
 }
 
@@ -104,7 +104,6 @@ impl fmt::Display for Sexp {
             U64(num)           => write!(f, "{}", num),
             Boolean(true)      => write!(f, "#t"),
             Boolean(false)     => write!(f, "#f"),
-            Pair(ref elts)     => write!(f, "({} . {})", elts[0], elts[1]),
             List(ref elts)     => {
                 write!(f, "({})",
                        elts // The following code joins the elements with a space separator
@@ -112,63 +111,107 @@ impl fmt::Display for Sexp {
                        .fold("".to_string(),
                              |a,b| if a.len() > 0 { a + " "}
                              else {a} + &b.to_string()))
-            }
+            },
+            Pair(Some(ref car), Some(ref cdr)) => write!(f, "({} . {})", car, cdr),
+            Pair(Some(ref car), None)      => write!(f, "({})", car),
+            Pair(None, Some(ref cdr))      => write!(f, "(() . {})", cdr),
+            Pair(None, None)           => write!(f, "(())"),
         }
+    }
+}
+
+impl Sexp {
+    /// Converts an alist structured S-expressions into a map.
+    ///
+    /// # Warning
+    /// This generates string keys, which means that keys that share the same
+    /// string representation will nessasarily be replaced, rather than
+    /// duplicated.
+    ///
+    /// # Example
+    ///
+    /// Simple alist structure
+    /// ```rust
+    /// let sexp = r#(
+    ///  (doctors  . ("Dr. Hargrove" "Dr. Steve" "Dr. Mischief" "Dr. Lizzie"))
+    ///  (teachers . ("Ms. Taya" "Mr. Smith" "Principle Weedle"))
+    ///  (sailors  . ("Ole Skippy" "Ravin' Dave" "Popeye")))#
+    /// let alist = Sexp::from_str(sexp);
+    /// let map = alist.into_map()
+    /// ```
+    ///
+    /// Non-pair structured key-value list into map
+    ///
+    /// ```rust
+    /// // Noticed that these are list, rather than pair structured S-expressions
+    /// let sexp = r#(
+    ///  ("New York" "Albany")
+    ///  ("Oregon"   "Salem")
+    ///  ("Florida"  "Miami"))#
+    /// let alist = Sexp::from_str(sexp);
+    /// let map = alist.map(|s| Sexp::Pair(s[0], s[1]))
+    ///                .collect::<Sexp::List>()
+    ///                .into_map()
+    /// ```
+    pub fn into_map(self) -> Result<BTreeMap<String, Option<Rc<Sexp>>>, IntoAlistError> {
+        let mut map = BTreeMap::new();
+        match self {
+            List(ref items) => for elt in items {
+                match elt {
+                    &Sexp::Pair(ref car, ref cdr) => {
+                        match car {
+                            &Some(ref value) => {
+                                let key = format!("{}", *value);
+                                if key.is_empty() {
+                                    return Err(IntoAlistError::KeyValueMustBePair);
+                                } else {
+                                    if map.insert(key, cdr.clone()).is_some() {
+                                        return Err(IntoAlistError::DuplicateKey);
+                                    }
+                                }
+                            }
+                            _ => return Err(IntoAlistError::KeyValueMustBePair)
+                        }
+                    }
+                    _ => return Err(IntoAlistError::KeyValueMustBePair),
+                }
+            },
+            _ => return Err(IntoAlistError::ContainerSexpNotList)
+        }
+
+
+        Ok(map)
+    }
+
+    /// Makes a new pair
+    fn new_pair(car: &Sexp, cdr: &Sexp) -> Sexp {
+        // If we've encountered an empty list, replace our cdr with `None`
+        let r_car: ConsCell;
+        let r_cdr: ConsCell;
+        r_car = Some(Rc::new(car.clone()));
+        match cdr {
+            &Sexp::List(ref elt) if elt.len() == 0 => r_cdr = None,
+            _ => r_cdr = Some(Rc::new(cdr.clone()))
+        }
+
+        Sexp::Pair(r_car, r_cdr)
     }
 }
 
 /*
-impl Sexp {
-pub fn car(self) -> Option<Sexp> {
-match self {
-Sexp::Cons { car: box car, .. } => Some(car),
-_ => None
-        }
-    }
-
-    pub fn cdr(self) -> Option<Sexp> {
-        match self {
-            Sexp::Cons { cdr: box cdr, .. } => Some(cdr),
-            _ => None
-        }
-    }
-
-    pub fn cadr(self) -> Option<Sexp> {
-        match self.cdr() {
-            Some(cdr @ Sexp::Cons { .. }) => cdr.car(),
-            _ => None
-        }
-    }
-
-    pub fn cddr(self) -> Option<Sexp> {
-        match self.cdr() {
-            Some(cdr @ Sexp::Cons { .. }) => cdr.cdr(),
-            _ => None
-        }
-    }
-
-    // pub fn cons(car: Sexp, cdr: Sexp) -> Sexp {
-    //     Sexp::Cons {
-    //         car: Box::new(car),
-    //         cdr: Box::new(cdr)
-    //     }
-    // }
-}
-
-
 #[cfg(test)]
 mod tests {
-    use ::Sexp;
-    use std::str::FromStr;
+use ::Sexp;
+use std::str::FromStr;
 
-    /// Recursively expand an abbreviated s-expression format to it's full Rust
-    /// struct representation.
-    macro_rules! expand_sexp {
-        () => {{ Sexp::Nil }};
-        (atom[$string:expr]) => {{ Sexp::Symbol(String::from($string)) }};
-        (cons [ car[ $($car:tt)* ], cdr[ $($cdr:tt)* ] ]) => {{
-            Sexp::Cons { car: Box::new(expand_sexp!($($car)*)),
-                         cdr: Box::new(expand_sexp!($($cdr)*))}
+/// Recursively expand an abbreviated s-expression format to it's full Rust
+/// struct representation.
+macro_rules! expand_sexp {
+() => {{ Sexp::Nil }};
+(atom[$string:expr]) => {{ Sexp::Symbol(String::from($string)) }};
+(cons [ car[ $($car:tt)* ], cdr[ $($cdr:tt)* ] ]) => {{
+Sexp::Cons { car: Box::new(expand_sexp!($($car)*)),
+cdr: Box::new(expand_sexp!($($cdr)*))}
         }};
     }
 
