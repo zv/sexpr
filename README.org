@@ -58,15 +58,17 @@
     sexpr accepts numerous configuration 
 
 *** Predefined Configurations
-    | Name       | ~square_brackets~ | ~allow_comments~ | ~colon_keywords~ | ~hex_escapes~ | ~pipe_action~  | Notes                                                  |
-    |------------+-------------------+------------------+------------------+---------------+----------------+--------------------------------------------------------|
-    | =STANDARD= | ✓                 | ✗                | ✓                | ✓             | Base64Interior | A generic 'standard' s-expression                      |
-    | =SMTLIB=   | ✗                 | ✓                | ✓                | ✗             | QuoteInterior  | A common interchange format for SAT and SMT solvers    |
-    | =KICAD=    | ✓                 | ✓                | ✓                | ✓             | None           | A computer-aided design program                        |
-    | =GUILE=    | ✓                 | ✓                | ✓                | ✓             | None           | A scheme intended for embedding in existing C programs |
-    
+    | Name        | ~square_brackets~ | ~allow_comments~ | ~colon_keywords~ | ~hex_escapes~ | ~pipe_action~  | Notes                                                               |
+    |-------------+-------------------+------------------+------------------+---------------+----------------+---------------------------------------------------------------------|
+    | =STANDARD=  | ✓                 | ✗                | ✓                | ✓             | Base64Interior | A generic 'standard' s-expression                                   |
+    | =SMTLIB=    | ✗                 | ✓                | ✓                | ✗             | QuoteInterior  | A common interchange format for SAT and SMT solvers                 |
+    | =KICAD=     | ✓                 | ✓                | ✓                | ✓             | None           | A computer-aided design program                                     |
+    | =GUILE=     | ✓                 | ✓                | ✓                | ✓             | None           | A scheme intended for embedding in existing C programs              |
+    | =CANONICAL= | ✗                 | ✗                | ✗                | ✗             | None           | A common, interchangable encoding for many cryptographic protocols. |
+
    
 *** Configuration Variables
+
 **** =allow_comments=
      Line comments can be enabled when parsing s-expressions by setting
      ~allow_comments = Some(&["#", ";"])~.
@@ -127,3 +129,16 @@
        interior, preserving line breaks and other whitespace in a Symbol.
 
        Use ~ParseConfig.pipe_action = ParsePipeBehavior::QuoteInterior~
+**** =transport=
+     Today, sexpr supports the most common form of S-expression transport
+     encoding, [[https://tools.ietf.org/html/rfc4648][RFC 4648 Base64]]. To indicate that you'd like to encode or decode
+     an S-expression as Base64, you can modify your configuration as following.
+
+     #+BEGIN_SRC rust
+     let mut config = STANDARD.copy()
+     mut.transport = TransportEncoding::Base64
+     #+END_SRC
+
+     If you'd like to add a new transport field, simple add to the
+     TransportEncoding enum, and create a new trait that implements
+     =SexpTransport=, the rest is handled for you.
