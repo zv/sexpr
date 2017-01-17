@@ -62,6 +62,11 @@
 use std::fmt;
 use std::str::FromStr;
 use std::string::String;
+use std::collections::BTreeMap;
+
+use std::rc::Rc;
+
+type ConsCell = Option<Rc<Sexp>>;
 
 /// An s-expression is either an atom or a list of s-expressions. This is
 /// similar to the data format used by lisp.
@@ -81,7 +86,8 @@ mod parse;
 mod error;
 
 use parse::Parser;
-use error::ParserError;
+use error::{ParserError, IntoAlistError};
+use error::IntoAlistError::*;
 
 impl FromStr for Sexp {
     type Err = ParserError;

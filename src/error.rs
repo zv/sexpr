@@ -43,3 +43,11 @@ fn error_str(error: ErrorCode) -> &'static str {
         _                     => "something else entirely"
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum IntoAlistError {
+    ContainerSexpNotList,
+    KeyValueMustBePair,
+    CannotStringifyKey,
+    DuplicateKey
+}
