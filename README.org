@@ -16,6 +16,7 @@
   - KiCad
   - R6RS-compatible
   - Guile scheme
+  - Shen Lisp
 
   Individual format options can be enabled or disabled, allowing you to parse
   virtually any variant.
@@ -53,10 +54,20 @@
 #    - Canonicalization ::  They produce a unique "canonical" form of an S-expression, for digital signature purposes.
 #    - Efficiency :: S-expressions should admit in-memory representations that allow efficient processing.   
   
-** Parsing S-expression variants
+** Configuration
+    sexpr accepts numerous configuration 
+
+*** Predefined Configurations
+    | Name       | ~square_brackets~ | ~allow_comments~ | ~colon_keywords~ | ~hex_escapes~ | ~pipe_action~  | Notes                                                  |
+    |------------+-------------------+------------------+------------------+---------------+----------------+--------------------------------------------------------|
+    | =STANDARD= | ✓                 | ✗                | ✓                | ✓             | Base64Interior | A generic 'standard' s-expression                      |
+    | =SMTLIB=   | ✗                 | ✓                | ✓                | ✗             | QuoteInterior  | A common interchange format for SAT and SMT solvers    |
+    | =KICAD=    | ✓                 | ✓                | ✓                | ✓             | None           | A computer-aided design program                        |
+    | =GUILE=    | ✓                 | ✓                | ✓                | ✓             | None           | A scheme intended for embedding in existing C programs |
+    
    
-*** Included Configuration Options
-**** Comments
+*** Configuration Variables
+**** =allow_comments=
      Line comments can be enabled when parsing s-expressions by setting
      ~allow_comments = Some(&["#", ";"])~.
 
@@ -64,27 +75,25 @@
      this does *not* comment out interior s-expressions like proposals like [[http://srfi.schemers.org/srfi-62/srfi-62.html][SRFI
      62]].
 
-**** Keywords
+**** =colon_keywords=
      Many Scheme implementations assign a special meaning to atoms beginning with
      =#:= or =:=, sexpr can parse these as 'keywords' or they can be treated as valid
      starting characters to an ordinary symbol. =(item :keyword value :keyword2 value)=
 
      You can control this behaviour with ~ParseConfig.allow_keywords = Some(&["#", "#:"])~
    
-**** Brackets
+**** =square_brackets=
      Some Lisp implementations and s-expressions allow square brackets (=[= and
      =]=) to be used as an alternative bracket character.
 
      These brackets must still themselves remain matched.
 
-     This is controlled with =ParseConfig.square_brackets = true=
-
-**** Radix Specification: 
+**** =radix_escape=
 ***** ~#~
       Libgcrypt, GPG and numerous Scheme implementations allow you to enclose a
       hexadecimal string in =#= characters: ~(q #61626364656667#)~
 
-      You can enable this with =enclosed_hex_strings=
+      You can enable this with =hex_escapes=
     
 *****  ~#b~ and ~#x~
       In a similar fashion, =#b= and =#x= are used to specify binary and
@@ -103,7 +112,7 @@
       If ~radix_escape~ is false, the initial ~#~ character will be treated as
       an atom.
 
-**** ~|~ (Pipe) Character Behavior 
+**** =parse_pipe_behavior=
      Standard decoding treats the | character as a valid starting literal to any
      Atom, although two other options are permitted:
 
