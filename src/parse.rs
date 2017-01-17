@@ -254,22 +254,19 @@ impl<T: Iterator<Item = char>> Parser<T> {
     // `car`).
     pub fn parse_value(&mut self) -> ParseResult {
         if self.eof() { return self.error(EOFWhileParsingValue); }
-
         self.parse_whitespace();
-
-        debug(&format!("self.ch: {:?}", self.ch));
-        match self.ch {
-            Some('(') | Some('[') => {
+        match self.ch_or_null() {
+            '(' => {
                 self.bump();
                 self.parse_list()
             },
-            Some(')') | Some(']') => self.error(UnexpectedEndOfList),
-            Some('-') | Some('0' ... '9') => self.parse_numeric(),
-            Some('"') => self.parse_string(),
-            Some('#') if self.configuration.hex_escapes =>
+            ')' => self.error(UnexpectedEndOfList),
+            '-' | '0' ... '9' => self.parse_numeric(),
+            '"' => self.parse_string(),
+            '#' if self.config.hex_escapes =>
                 self.parse_hexadecimal(),
-            Some(_) => self.parse_atom(),
-            None => self.error(EOFWhileParsingValue)
+            '\x00' => self.error(EOFWhileParsingValue),
+            _ => self.parse_atom(),
         }
     }
 }
