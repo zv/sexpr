@@ -204,57 +204,50 @@ impl Sexp {
     }
 }
 
-/*
+
 #[cfg(test)]
 mod tests {
-use ::Sexp;
-use std::str::FromStr;
+    use ::Sexp;
+    use std::str::FromStr;
 
-/// Recursively expand an abbreviated s-expression format to it's full Rust
-/// struct representation.
-macro_rules! expand_sexp {
-() => {{ Sexp::Nil }};
-(atom[$string:expr]) => {{ Sexp::Symbol(String::from($string)) }};
-(cons [ car[ $($car:tt)* ], cdr[ $($cdr:tt)* ] ]) => {{
-Sexp::Cons { car: Box::new(expand_sexp!($($car)*)),
-cdr: Box::new(expand_sexp!($($cdr)*))}
-        }};
+    fn roundtrip(sexp: &str) -> String {
+        format!("{}", Sexp::from_str(sexp).unwrap())
+    }
+
+    fn assert_decoded(expected: &str, sexp: &str) {
+        assert_eq!(expected, roundtrip(sexp))
+    }
+
+    fn assert_roundtrip(sexp: &str) {
+        assert_eq!(sexp, roundtrip(sexp))
     }
 
     #[test]
     fn test_sexp_parser_simple() {
-        let result = Sexp::from_str("(a b c)").unwrap();
-        assert_eq!(result,
-                   expand_sexp!(
-                       cons[
-                           car[atom["a"]],
-                           cdr[cons[car[atom["b"]],
-                                    cdr[cons[car[atom["c"]],
-                                             cdr[]]]
-                           ]]
-                       ]
-                   ))
+        assert_roundtrip("(1 (2 (3 4 a (b) a)))")
     }
 
     #[test]
-    fn test_sexp_parser_pair() {
-        let result = Sexp::from_str("(a . b)").unwrap();
-        assert_eq!(result,
-                   expand_sexp!(
-                       cons[car[atom["a"]],
-                            cdr[atom["b"]]]))
+    fn test_escape_string() {
+        assert_decoded("(a \"ab\"c\")", "(a \"ab\\\"c\")")
     }
 
     #[test]
-    fn test_sexp_display_numeric() {
-        let src = "(1 (2 3 4))";
-        assert_eq!(src, format!("{}", Sexp::from_str(src).unwrap()));
+    fn test_simple_pair() {
+        assert_roundtrip("(a . b)")
     }
 
     #[test]
-    fn test_sexp_display_mixed_numeric() {
-        let src = "(1 2.1 3 4)";
-        assert_eq!(src, format!("{}", Sexp::from_str(src).unwrap()));
+    fn test_long_pair() {
+        assert_roundtrip("((a . b) (c . d) (e . 1))")
     }
+
+    #[test]
+    fn test_decode_hex_radix() {
+        assert_decoded(
+            "(10 11 12)",
+            "(#xa #xb #xc)"
+        )
+    }
+
 }
- */
