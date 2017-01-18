@@ -249,4 +249,18 @@ mod tests {
         )
     }
 
+    #[test]
+    fn test_skip_comment() {
+        assert_decoded(
+            "(a b c)",
+            "(; this is a comment
+              a
+              ;; another comment
+              b
+              ;;; third comment
+              c
+              ;;; final comment
+            )"
+        )
+    }
 }

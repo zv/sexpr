@@ -20,6 +20,8 @@ pub enum ParsePipeBehavior {
 
 #[derive(Clone, Copy, Debug)]
 pub struct ParseConfig {
+    // Should semicolons ignore the remainder of the line?
+    pub semi_comments: bool,
     // Should atoms be read case-insensitively?
     pub case_sensitive_atoms: bool,
 
@@ -37,6 +39,7 @@ pub struct ParseConfig {
 
 /// Configuration for RFC 4648 standard base64 encoding
 pub static STANDARD: ParseConfig = ParseConfig {
+    semi_comments: true,
     square_brackets: true,
     case_sensitive_atoms: false,
     pipe_action: ParsePipeBehavior::None,
@@ -81,6 +84,12 @@ impl<T: Iterator<Item = char>> Parser<T> {
         } else {
             self.col += 1;
         }
+
+        // If `semi_comments` is enabled, we should read the stream until
+        // newline as a comment.
+        if self.config.semi_comments && self.ch_is(';') {
+            self.parse_comment();
+        }
     }
 
     fn error(&mut self, reason: ErrorCode) -> ParseResult {
@@ -91,6 +100,10 @@ impl<T: Iterator<Item = char>> Parser<T> {
     fn ch_is(&self, c: char) -> bool { self.ch == Some(c) }
     fn eof(&self) -> bool { self.ch.is_none() }
     fn ch_or_null(&self) -> char { self.ch.unwrap_or('\x00') }
+
+    fn parse_comment(&mut self) {
+        while !self.ch_is('\n') { self.bump(); }
+    }
 
     fn parse_whitespace(&mut self) {
         while self.ch_is(' ') ||
@@ -248,7 +261,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
                         }
                         _ => return self.error(MissingCloseParen)
                     }
-                    
+
                 },
                 Some(')') => {
                     self.bump();
