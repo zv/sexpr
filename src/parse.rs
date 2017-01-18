@@ -82,7 +82,8 @@ impl<T: Iterator<Item = char>> Parser<T> {
             // an actual null byte, which is valid in a s-expression however.
             match self.ch_or_null() {
                 ch @ 'a' ... 'z' => result.push(ch),
-                '\t' | ' ' | '\n' | ')' | '\x00' => break,
+                '\t' | ' ' | '\n' | ')' | '\x00' | ']' if self.config.square_brackets
+                    => break,
                 // This is a superset fallthrough of the earlier 'a'...'z'
                 // pattern, this is a convienent stub for later changes to the
                 // definition of a valid symbol
@@ -96,7 +97,6 @@ impl<T: Iterator<Item = char>> Parser<T> {
         } else {
             None
         }
-
     }
 
     fn parse_atom(&mut self) -> ParseResult {
@@ -225,14 +225,14 @@ impl<T: Iterator<Item = char>> Parser<T> {
         }
     }
 
-    fn parse_list(&mut self) -> ParseResult {
+    fn parse_list(&mut self, opening_ch: char) -> ParseResult {
         let mut result: Vec<Sexp> = vec![];
 
         loop {
             self.parse_whitespace();
-            match self.ch {
+            match self.ch_or_null() {
                 // The end of a list is defined as #nil
-                Some('.') => {
+                '.' => {
                     self.bump();
                     result.push(self.parse_value()?);
 
@@ -246,11 +246,20 @@ impl<T: Iterator<Item = char>> Parser<T> {
                     }
 
                 },
-                Some(')') => {
-                    self.bump();
-                    break;
+                ch @ ')' | ch @ ']' => {
+                    // This predicate checks for unbalanced expressions -- If
+                    // our opening character differs from an appropriate closing
+                    // character
+                    if (ch == ')' && opening_ch == '[') |
+                       (self.config.square_brackets && ch == ']' && opening_ch == '(') {
+                        return self.error(UnbalancedClosingParen)
+                    } else {
+                        self.bump();
+                        break;
+                    }
                 },
-                Some(_) => {
+                '\x00' => return self.error(EOFWhileParsingList),
+                _ => {
                     // parse a value, put it in car.
 
                     // This code could be really funky, might want to check for EOF
@@ -261,7 +270,6 @@ impl<T: Iterator<Item = char>> Parser<T> {
                         break;
                     }
                 }
-                None => return self.error(EOFWhileParsingList),
             }
         }
 
@@ -277,9 +285,9 @@ impl<T: Iterator<Item = char>> Parser<T> {
         if self.eof() { return self.error(EOFWhileParsingValue); }
         self.parse_whitespace();
         match self.ch_or_null() {
-            '(' => {
+            paren @ '(' | paren @ '[' if self.config.square_brackets => {
                 self.bump();
-                self.parse_list()
+                self.parse_list(paren)
             },
             ')' => self.error(UnexpectedEndOfList),
             '-' | '0' ... '9' => self.parse_numeric(),

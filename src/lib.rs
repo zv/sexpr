@@ -273,4 +273,17 @@ mod tests {
             )"
         )
     }
+
+
+    #[test]
+    fn test_square_brackets() {
+        assert_decoded("(a (b c (d)))",
+                       "(a [b c (d)])")
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_square_bracket_balance() {
+        assert_roundtrip("(a b (a [b c) d] e)")
+    }
 }

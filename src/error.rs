@@ -8,6 +8,7 @@ pub enum ErrorCode {
     InvalidAtom,
     InvalidNumber,
     InvalidEscape,
+    UnbalancedClosingParen,
     MissingCloseParen,
     UnrecognizedBase64,
     UnrecognizedHex,
