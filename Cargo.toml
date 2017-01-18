@@ -11,3 +11,6 @@ documentation = "https://zv.github.io/rust/sexpr"
 [dependencies]
 clippy = {version = "*", optional = true}
 
+[[bin]]
+name = "main"
+doc = false
