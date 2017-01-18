@@ -87,7 +87,6 @@ mod error;
 
 use parse::Parser;
 use error::{ParserError, IntoAlistError};
-use error::IntoAlistError::*;
 
 impl FromStr for Sexp {
     type Err = ParserError;
@@ -150,16 +149,16 @@ impl Sexp {
     ///
     /// ```rust
     /// // Noticed that these are list, rather than pair structured S-expressions
-    /// let sexp = r#(
-    ///  ("New York" "Albany")
-    ///  ("Oregon"   "Salem")
-    ///  ("Florida"  "Miami"))#
-    /// let alist = Sexp::from_str(sexp);
-    /// let map = alist.map(|s| Sexp::Pair(s[0], s[1]))
-    ///                .collect::<Sexp::List>()
-    ///                .into_map()
+    /// use sexpr::Sexp;
+    /// use std::str::FromStr;
+    /// let sexp = "(
+    ///  (\"New York\" \"Albany\")
+    ///  (\"Oregon\"   \"Salem\")
+    ///  (\"Florida\"  \"Miami\"))";
+    /// let alist = Sexp::from_str(sexp).unwrap().into_map();
     /// ```
-    pub fn into_map(self) -> Result<BTreeMap<String, Option<Rc<Sexp>>>, IntoAlistError> {
+    pub fn into_map(self) -> Result<BTreeMap<String, ConsCell>, IntoAlistError> {
+        use error::IntoAlistError::*;
         let mut map = BTreeMap::new();
         match self {
             List(ref items) => for elt in items {
@@ -169,20 +168,20 @@ impl Sexp {
                             &Some(ref value) => {
                                 let key = format!("{}", *value);
                                 if key.is_empty() {
-                                    return Err(IntoAlistError::KeyValueMustBePair);
+                                    return Err(KeyValueMustBePair);
                                 } else {
                                     if map.insert(key, cdr.clone()).is_some() {
-                                        return Err(IntoAlistError::DuplicateKey);
+                                        return Err(DuplicateKey);
                                     }
                                 }
                             }
-                            _ => return Err(IntoAlistError::KeyValueMustBePair)
+                            _ => return Err(KeyValueMustBePair)
                         }
                     }
-                    _ => return Err(IntoAlistError::KeyValueMustBePair),
+                    _ => return Err(KeyValueMustBePair),
                 }
             },
-            _ => return Err(IntoAlistError::ContainerSexpNotList)
+            _ => return Err(ContainerSexpNotList)
         }
 
 
