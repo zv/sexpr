@@ -94,7 +94,7 @@ impl FromStr for Sexp {
 
     fn from_str(s: &str) -> Result<Sexp, Self::Err> {
         let mut p = Parser::new(s.chars());
-        p.parse_value()
+        p.parse()
     }
 }
 

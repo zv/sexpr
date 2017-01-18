@@ -6,9 +6,9 @@ use error::ErrorCode;
 use error::ErrorCode::*;
 use error::ParserError;
 use error::ParserError::*;
-
 use config::{STANDARD, ParseConfig};
 
+type ParseResult = Result<Sexp, ParserError>;
 
 /// A streaming S-Exp parser implemented as an iterator of `SexpEvent`, consuming
 /// an iterator of char.
@@ -20,9 +20,7 @@ pub struct Parser<T> {
     config: ParseConfig,
 }
 
-type ParseResult = Result<Sexp, ParserError>;
-
-fn debug(s: &str) { if false {println!("{}", s)} }
+fn debug(s: &str) { if false { println!("{}", s) } }
 
 impl<T: Iterator<Item = char>> Parser<T> {
     pub fn new(reader: T) -> Parser<T> {
@@ -248,9 +246,11 @@ impl<T: Iterator<Item = char>> Parser<T> {
         Ok(Sexp::List(result))
     }
 
-    // Parsing begins at `parse_value` and functions that can build recursive
-    // structures may use parse_value to select it's next data element (it's
-    // `car`).
+    // Invoked at each iteration, consumes the stream until it has enough
+    // information to return a `ParseResult`.
+    // Manages an internal state so that parsing can be interrupted and resumed.
+    // Also keeps track of the position in the logical structure of the sexp
+    // stream which may be queried by the user while running.
     pub fn parse_value(&mut self) -> ParseResult {
         if self.eof() { return self.error(EOFWhileParsingValue); }
         self.parse_whitespace();
@@ -267,5 +267,12 @@ impl<T: Iterator<Item = char>> Parser<T> {
             '\x00' => self.error(EOFWhileParsingValue),
             _ => self.parse_atom(),
         }
+    }
+
+
+    // Presently, `parse` is a stub function for coordinating pre & post action
+    // hooks.
+    pub fn parse(&mut self) -> ParseResult {
+        self.parse_value()
     }
 }
