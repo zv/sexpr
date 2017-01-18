@@ -82,6 +82,7 @@ pub enum Sexp {
     List(Vec<Sexp>)
 }
 
+mod config;
 mod parse;
 mod error;
 
