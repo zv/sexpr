@@ -66,18 +66,26 @@ use std::collections::BTreeMap;
 
 use std::rc::Rc;
 
-type ConsCell = Option<Rc<Sexp>>;
+// Rather than having a specialized 'nil' atom, we save space by letting `None`
+// here indicates 'nil'
+type SexpPtr = Rc<Sexp>;
+type ConsCell = Option<SexpPtr>;
 
 /// An s-expression is either an atom or a list of s-expressions. This is
 /// similar to the data format used by lisp.
 #[derive(PartialEq, PartialOrd, Clone, Debug)]
 pub enum Sexp {
+    /// A symbol or alist key
     Symbol(String),
+    /// A UTF-8 String
     String(String),
+    /// A keyword consists of a `:` (colon) followed by valid symbol characters.
+    Keyword(String),
     I64(i64),
     U64(u64),
     F64(f64),
     Boolean(bool),
+    /// A classic 'cons cell' structure whose elts are themselves cons-cells.
     Pair(ConsCell, ConsCell),
     List(Vec<Sexp>)
 }
@@ -103,7 +111,8 @@ use self::Sexp::*;
 impl fmt::Display for Sexp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Symbol(ref sym)    => write!(f, "{}", sym),
+            Symbol(ref sym) | Keyword(ref sym)  =>
+                write!(f, "{}", sym),
             String(ref string) => write!(f, "\"{}\"", string),
             F64(num)           => write!(f, "{}", num),
             I64(num)           => write!(f, "{}", num),

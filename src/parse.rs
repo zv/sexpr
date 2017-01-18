@@ -73,8 +73,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
             self.ch_is('\r') { self.bump(); }
     }
 
-    fn parse_atom(&mut self) -> ParseResult {
-        debug("Parsing Atom");
+    fn parse_symbol(&mut self) -> Option<String> {
         let mut result = String::new();
         loop {
             // In cases with large number of or-cases, it's more convienent to
@@ -83,12 +82,36 @@ impl<T: Iterator<Item = char>> Parser<T> {
             // an actual null byte, which is valid in a s-expression however.
             match self.ch_or_null() {
                 ch @ 'a' ... 'z' => result.push(ch),
-                '\t' | ' ' | '\n' | ')' => return Ok(Sexp::Symbol(result)),
-                // We've encountered an EOF
-                '\x00' => return self.error(EOFWhileParsingAtom),
-                _ => return self.error(InvalidAtom),
+                '\t' | ' ' | '\n' | ')' | '\x00' => break,
+                // This is a superset fallthrough of the earlier 'a'...'z'
+                // pattern, this is a convienent stub for later changes to the
+                // definition of a valid symbol
+                ch => result.push(ch)
             };
             self.bump();
+        }
+
+        if result.len() > 0 {
+            Some(result)
+        } else {
+            None
+        }
+
+    }
+
+    fn parse_atom(&mut self) -> ParseResult {
+        debug("Parsing Atom");
+        match self.parse_symbol() {
+            Some(atom) => Ok(Sexp::Symbol(atom)),
+            None => self.error(InvalidAtom)
+        }
+    }
+
+    fn parse_keyword(&mut self) -> ParseResult {
+        debug("Parsing Keyword");
+        match self.parse_symbol() {
+            Some(atom) => Ok(Sexp::Keyword(atom)),
+            None => self.error(InvalidAtom)
         }
     }
 
@@ -133,7 +156,6 @@ impl<T: Iterator<Item = char>> Parser<T> {
         }
     }
 
-    /// There is
     fn parse_hexadecimal(&mut self) -> ParseResult {
         debug("Parsing Hexadecimal");
         let mut accumulator: u64 = 0; // Could be shortened to acc ...
@@ -264,6 +286,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
             '"' => self.parse_string(),
             '#' if self.config.hex_escapes =>
                 self.parse_hexadecimal(),
+            ':' if self.config.colon_keywords => self.parse_keyword(),
             '\x00' => self.error(EOFWhileParsingValue),
             _ => self.parse_atom(),
         }

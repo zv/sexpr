@@ -23,6 +23,8 @@ pub struct ParseConfig {
     pub hex_escapes: bool,
     // Escapes #xNUMBER (hex) and #bNUMBER (binary) to their respective encodings
     pub radix_escape: bool,
+    // Accept `:keywords`
+    pub colon_keywords: bool
 }
 
 /// Configuration for RFC 4648 standard base64 encoding
@@ -33,4 +35,5 @@ pub static STANDARD: ParseConfig = ParseConfig {
     pipe_action: ParsePipeBehavior::None,
     hex_escapes: true,
     radix_escape: false,
+    colon_keywords: true
 };
