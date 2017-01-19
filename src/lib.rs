@@ -232,32 +232,19 @@ mod tests {
     }
 
     #[test]
-    fn test_sexp_parser_simple() {
-        assert_roundtrip("(1 (2 (3 4 a (b) a)))")
-    }
+    fn test_sexp_parser_simple() { assert_roundtrip("(1 (2 (3 4 a (b) a)))") }
 
     #[test]
-    fn test_escape_string() {
-        assert_decoded("(a \"ab\"c\")", "(a \"ab\\\"c\")")
-    }
+    fn test_escape_string() { assert_decoded("(a \"ab\"c\")", "(a \"ab\\\"c\")") }
 
     #[test]
-    fn test_simple_pair() {
-        assert_roundtrip("(a . b)")
-    }
+    fn test_simple_pair() { assert_roundtrip("(a . b)") }
 
     #[test]
-    fn test_long_pair() {
-        assert_roundtrip("((a . b) (c . d) (e . 1))")
-    }
+    fn test_long_pair() { assert_roundtrip("((a . b) (c . d) (e . 1))") }
 
     #[test]
-    fn test_decode_hex_radix() {
-        assert_decoded(
-            "(10 11 12)",
-            "(#xa #xb #xc)"
-        )
-    }
+    fn test_decode_hex_radix() { assert_decoded("(10 11 12)", "(#xa #xb #xc)") }
 
     #[test]
     fn test_skip_comment() {
@@ -276,14 +263,9 @@ mod tests {
 
 
     #[test]
-    fn test_square_brackets() {
-        assert_decoded("(a (b c (d)))",
-                       "(a [b c (d)])")
-    }
+    fn test_square_brackets() { assert_decoded("(a (b c (d)))", "(a [b c (d)])") }
 
     #[test]
     #[should_panic]
-    fn test_square_bracket_balance() {
-        assert_roundtrip("(a b (a [b c) d] e)")
-    }
+    fn test_square_bracket_balance() { assert_roundtrip("(a b (a [b c) d] e)") }
 }
