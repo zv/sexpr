@@ -1,8 +1,43 @@
-use serialize::Encodable;
+extern crate rustc_serialize;
+use self::rustc_serialize::Encodable;
+
 use std::error::Error as StdError;
-use std::str::FromStr;
-use std::string;
+//use std::str::FromStr;
+//use std::string;
 use std::{char, f64, fmt, io, str};
+use Sexp;
+
+
+/// Shortcut function to encode a `T` into a JSON `String`
+pub fn encode<T: Encodable>(object: &T) -> EncodeResult<String> {
+    let mut s = String::new();
+    {
+        let mut encoder = Encoder::new(&mut s);
+        try!(object.encode(&mut encoder));
+    }
+    Ok(s)
+}
+
+
+impl Encodable for Sexp {
+    fn encode<S: rustc_serialize::Encoder>(&self, e: &mut S) -> Result<(), S::Error> {
+        match *self {
+            Sexp::Symbol(ref v) => v.encode(e),
+            Sexp::String(ref v) => v.encode(e),
+            Sexp::Keyword(ref v) => v.encode(e),
+
+            Sexp::I64(v) => v.encode(e),
+            Sexp::U64(v) => v.encode(e),
+            Sexp::F64(v) => v.encode(e),
+
+            Sexp::Boolean(v) => v.encode(e),
+
+            Sexp::Pair(ref car, _) => car.encode(e),
+            Sexp::List(ref v) => v.encode(e)
+        }
+    }
+}
+
 
 #[derive(Copy, Debug)]
 pub enum EncoderError {
@@ -40,13 +75,6 @@ impl From<fmt::Error> for EncoderError {
 
 
 pub type EncodeResult<T> = Result<T, EncoderError>;
-
-
-/// A structure for implementing serialization to S-expressions.
-pub struct Encoder<'a> {
-    writer: &'a mut (fmt::Write+'a),
-    is_emitting_map_key: bool,
-}
 
 macro_rules! emit_enquoted_if_mapkey {
     ($enc:ident,$e:expr) => {
@@ -155,7 +183,14 @@ impl<'a> Encoder<'a> {
 }
 
 
-impl<'a> ::Encoder for Encoder<'a> {
+/// A structure for implementing serialization to S-expressions.
+pub struct Encoder<'a> {
+    writer: &'a mut (fmt::Write+'a),
+    is_emitting_map_key: bool,
+}
+
+
+impl<'a> rustc_serialize::Encoder for Encoder<'a> {
     type Error = EncoderError;
 
     fn emit_nil(&mut self) -> EncodeResult<()> {
