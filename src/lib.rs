@@ -66,6 +66,7 @@ use std::collections::BTreeMap;
 
 use std::rc::Rc;
 
+
 // Rather than having a specialized 'nil' atom, we save space by letting `None`
 // here indicates 'nil'
 type SexpPtr = Rc<Sexp>;
@@ -90,12 +91,21 @@ pub enum Sexp {
     List(Vec<Sexp>)
 }
 
+pub mod serialize;
+
 mod config;
 mod parse;
 mod error;
 
 use parse::Parser;
-use error::{ParserError, IntoAlistError};
+use error::{ ParserError, IntoAlistError };
+
+use serialize::{Encoder,Encodable};
+
+pub mod encode;
+use encode::EncodeResult;
+
+mod collection_impls;
 
 impl FromStr for Sexp {
     type Err = ParserError;
@@ -107,6 +117,25 @@ impl FromStr for Sexp {
 }
 
 use self::Sexp::*;
+
+impl Encodable for Sexp {
+    fn encode<S: ::Encoder>(&self, e: &mut S) -> Result<(), S::Error> {
+        match *self {
+            Sexp::Symbol(ref v) => v.encode(e),
+            Sexp::String(ref v) => v.encode(e),
+            Sexp::Keyword(ref v) => v.encode(e),
+
+            Sexp::I64(v) => v.encode(e),
+            Sexp::U64(v) => v.encode(e),
+            Sexp::F64(v) => v.encode(e),
+
+            Sexp::Boolean(v) => v.encode(e),
+
+            Sexp::Pair(ref car, ref cdr) => car.encode(e),
+            Sexp::List(ref v) => v.encode(e)
+        }
+    }
+}
 
 impl fmt::Display for Sexp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -125,7 +154,7 @@ impl fmt::Display for Sexp {
                        .iter()
                        .fold("".to_string(),
                              |a,b| if a.len() > 0 { a + " "}
-                             else {a} + &b.to_string()))
+                             else { a } + &b.to_string()))
             },
             Pair(Some(ref car), Some(ref cdr)) => write!(f, "({} . {})", car, cdr),
             Pair(Some(ref car), None)      => write!(f, "({})", car),

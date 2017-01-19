@@ -10,7 +10,9 @@ documentation = "https://zv.github.io/rust/sexpr"
 
 [dependencies]
 clippy = {version = "*", optional = true}
+rustc-serialize = "0.3"
 
 [[bin]]
 name = "main"
 doc = false
+
