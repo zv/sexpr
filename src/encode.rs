@@ -1,10 +1,8 @@
 extern crate rustc_serialize;
 use self::rustc_serialize::Encodable;
-
 use std::error::Error as StdError;
-//use std::str::FromStr;
-//use std::string;
-use std::{char, f64, fmt, io, str};
+use std::{char, f64, fmt, str};
+use std::io::Write;
 use Sexp;
 
 /// Shortcut function to encode a `T` into a JSON `String`
@@ -16,7 +14,6 @@ pub fn encode<T: Encodable>(object: &T) -> EncodeResult<String> {
     }
     Ok(s)
 }
-
 
 impl Encodable for Sexp {
     fn encode<S: rustc_serialize::Encoder>(&self, e: &mut S) -> Result<(), S::Error> {
@@ -87,9 +84,8 @@ macro_rules! emit_enquoted_if_mapkey {
     }
 }
 
-
 fn escape_str(wr: &mut fmt::Write, v: &str) -> EncodeResult<()> {
-    // try!(wr.write_str("\""));
+    try!(wr.write_str("\""));
 
     let mut start = 0;
 
@@ -146,13 +142,13 @@ fn escape_str(wr: &mut fmt::Write, v: &str) -> EncodeResult<()> {
         try!(wr.write_str(&v[start..]));
     }
 
-    // try!(wr.write_str("\""));
+    try!(wr.write_str("\""));
     Ok(())
 }
 
 fn escape_char(writer: &mut fmt::Write, v: char) -> EncodeResult<()> {
     let mut buf = [0; 4];
-    // let _ = write!(&mut &mut buf[..], "{}", v);
+    let _ = write!(&mut &mut buf[..], "{}", v);
     let buf = unsafe { str::from_utf8_unchecked(&buf[..v.len_utf8()]) };
     escape_str(writer, buf)
 }
