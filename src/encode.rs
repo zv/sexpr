@@ -7,7 +7,6 @@ use std::error::Error as StdError;
 use std::{char, f64, fmt, io, str};
 use Sexp;
 
-
 /// Shortcut function to encode a `T` into a JSON `String`
 pub fn encode<T: Encodable>(object: &T) -> EncodeResult<String> {
     let mut s = String::new();
@@ -90,7 +89,7 @@ macro_rules! emit_enquoted_if_mapkey {
 
 
 fn escape_str(wr: &mut fmt::Write, v: &str) -> EncodeResult<()> {
-    try!(wr.write_str("\""));
+    // try!(wr.write_str("\""));
 
     let mut start = 0;
 
@@ -147,7 +146,7 @@ fn escape_str(wr: &mut fmt::Write, v: &str) -> EncodeResult<()> {
         try!(wr.write_str(&v[start..]));
     }
 
-    try!(wr.write_str("\""));
+    // try!(wr.write_str("\""));
     Ok(())
 }
 
@@ -252,7 +251,7 @@ impl<'a> rustc_serialize::Encoder for Encoder<'a> {
             try!(write!(self.writer, "((variant "));
             // We could write a 'dot' to allow a more unambiguous s-expression.
             try!(escape_str(self.writer, name));
-            try!(write!(self.writer, ")"));
+            try!(write!(self.writer, ") "));
 
             try!(f(self)); // Encode the sub-sexpression's fields
 
@@ -302,13 +301,12 @@ impl<'a> rustc_serialize::Encoder for Encoder<'a> {
         if len == 0 {
             try!(write!(self.writer, "(())"));
         } else {
-            try!(write!(self.writer, "(("));
+            try!(write!(self.writer, "("));
             try!(f(self));
-            try!(write!(self.writer, "))"));
+            try!(write!(self.writer, ")"));
         }
         Ok(())
     }
-
 
     fn emit_struct_field<F>(&mut self, name: &str, idx: usize, f: F) -> EncodeResult<()> where
         F: FnOnce(&mut Encoder<'a>) -> EncodeResult<()>,
@@ -317,9 +315,12 @@ impl<'a> rustc_serialize::Encoder for Encoder<'a> {
         if idx != 0 {
             try!(write!(self.writer, " "));
         }
+        try!(write!(self.writer, "("));
         try!(escape_str(self.writer, name));
         try!(write!(self.writer, " "));
-        f(self)
+        f(self);
+        try!(write!(self.writer, ")"));
+        Ok(())
     }
 
     fn emit_tuple<F>(&mut self, len: usize, f: F) -> EncodeResult<()> where
@@ -397,9 +398,9 @@ impl<'a> rustc_serialize::Encoder for Encoder<'a> {
         if len == 0 {
             try!(write!(self.writer, "(())"));
         } else {
-            try!(write!(self.writer, "(( "));
+            try!(write!(self.writer, "("));
             try!(f(self));
-            try!(write!(self.writer, " ))"));
+            try!(write!(self.writer, ")"));
         }
         Ok(())
     }
@@ -412,6 +413,7 @@ impl<'a> rustc_serialize::Encoder for Encoder<'a> {
             try!(write!(self.writer, " "));
         }
         self.is_emitting_map_key = true;
+        try!(write!(self.writer, "("));
         try!(f(self));
         self.is_emitting_map_key = false;
         Ok(())
@@ -421,8 +423,11 @@ impl<'a> rustc_serialize::Encoder for Encoder<'a> {
         F: FnOnce(&mut Encoder<'a>) -> EncodeResult<()>,
     {
         if self.is_emitting_map_key { return Err(EncoderError::BadHashmapKey); }
-        try!(write!(self.writer, ":"));
-        f(self)
+
+        try!(write!(self.writer, " . "));
+        f(self);
+        try!(write!(self.writer, ")"));
+        Ok(())
     }
 
 }
