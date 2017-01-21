@@ -1,8 +1,10 @@
 #![allow(non_snake_case)]
+use self::ErrorCode::*;
+use self::ParserError::*;
+use self::DecoderError::*;
 
-use std::fmt;
+use std::{fmt};
 use std::error::Error as StdError;
-
 
 /// The errors that can arise while parsing a S-expression stream.
 
@@ -27,13 +29,31 @@ pub enum ErrorCode {
     TrailingCharacters,
 }
 
-use self::ErrorCode::*;
-
 #[derive(Debug)]
 pub enum ParserError {
     ///         msg,      line,   col
     SyntaxError(ErrorCode, usize, usize),
     // IoError(io::Error),
+}
+
+impl PartialEq for ParserError {
+    fn eq(&self, other: &ParserError) -> bool {
+        match (self, other) {
+            (&SyntaxError(msg0, line0, col0), &SyntaxError(msg1, line1, col1)) =>
+                msg0 == msg1 && line0 == line1 && col0 == col1
+        }
+    }
+}
+
+impl StdError for ParserError {
+    fn description(&self) -> &str { "failed to parse json" }
+}
+
+
+impl fmt::Display for ParserError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(&self, f)
+    }
 }
 
 /// Returns a readable error string for a given error code.
@@ -57,6 +77,9 @@ pub enum IntoAlistError {
     DuplicateKey
 }
 
+//
+// Encoder
+//
 
 #[derive(Copy, Debug)]
 /// Returns a readable error for `Encodable` faults
@@ -94,3 +117,39 @@ impl From<fmt::Error> for EncoderError {
     fn from(err: fmt::Error) -> EncoderError { EncoderError::FmtError(err) }
 }
 
+//
+// Decoder
+//
+
+#[allow(dead_code)]
+#[derive(PartialEq, Debug)]
+pub enum DecoderError {
+    ParserError(ParserError),
+    ExpectedError(String, String),
+    MissingFieldError(String),
+    UnknownVariantError(String),
+    ApplicationError(String),
+    EOF,
+}
+
+impl StdError for DecoderError {
+    fn description(&self) -> &str { "decoder error" }
+    fn cause(&self) -> Option<&StdError> {
+        match *self {
+            DecoderError::ParserError(ref e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for DecoderError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(&self, f)
+    }
+}
+
+impl From<ParserError> for DecoderError {
+    fn from(err: ParserError) -> DecoderError {
+        ParserError(From::from(err))
+    }
+}
