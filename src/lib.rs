@@ -60,13 +60,24 @@
 //! println!("Colorado's Capital is: {}", decoded.get("Colorado"))
 //! ```
 #![feature(box_patterns)]
+extern crate rustc_serialize;
+use self::rustc_serialize::Encodable;
+
 use std::fmt;
 use std::str::FromStr;
 use std::string::String;
 use std::collections::BTreeMap;
-
 use std::rc::Rc;
 
+mod config;
+mod parse;
+mod error;
+
+use parse::Parser;
+use error::{ ParserError, IntoAlistError };
+
+pub mod encodable;
+use encodable::{Encoder, EncodeResult};
 
 // Rather than having a specialized 'nil' atom, we save space by letting `None`
 // here indicates 'nil'
@@ -92,12 +103,8 @@ pub enum Sexp {
     List(Vec<Sexp>)
 }
 
-mod config;
-mod parse;
-mod error;
 
-use parse::Parser;
-use error::{ ParserError, IntoAlistError };
+use ::Sexp::*;
 
 impl FromStr for Sexp {
     type Err = ParserError;
@@ -107,10 +114,6 @@ impl FromStr for Sexp {
         p.parse()
     }
 }
-
-pub mod encode;
-
-use self::Sexp::*;
 
 impl fmt::Display for Sexp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -137,6 +140,17 @@ impl fmt::Display for Sexp {
             Pair(None, None)           => write!(f, "(())"),
         }
     }
+}
+
+
+/// Shortcut function to encode a `T` into a JSON `String`
+pub fn encode<T: Encodable>(object: &T) -> EncodeResult<String> {
+    let mut s = String::new();
+    {
+        let mut encoder = Encoder::new(&mut s);
+        try!(object.encode(&mut encoder));
+    }
+    Ok(s)
 }
 
 impl Sexp {

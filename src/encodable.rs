@@ -88,16 +88,6 @@ use std::{char, f64, fmt, str};
 use std::io::Write;
 use Sexp;
 
-/// Shortcut function to encode a `T` into a JSON `String`
-pub fn encode<T: Encodable>(object: &T) -> EncodeResult<String> {
-    let mut s = String::new();
-    {
-        let mut encoder = Encoder::new(&mut s);
-        try!(object.encode(&mut encoder));
-    }
-    Ok(s)
-}
-
 impl Encodable for Sexp {
     fn encode<S: rustc_serialize::Encoder>(&self, e: &mut S) -> Result<(), S::Error> {
         match *self {
@@ -270,6 +260,7 @@ pub struct Encoder<'a> {
 impl<'a> rustc_serialize::Encoder for Encoder<'a> {
     type Error = EncoderError;
 
+    /// Emit a nil value.
     fn emit_nil(&mut self) -> EncodeResult<()> {
         if self.is_emitting_map_key { return Err(EncoderError::BadHashmapKey); }
         try!(write!(self.writer, "()"));
@@ -277,26 +268,36 @@ impl<'a> rustc_serialize::Encoder for Encoder<'a> {
     }
 
     // Various numeric types
+    /// Emit a usize value
     fn emit_usize(&mut self, v: usize) -> EncodeResult<()>  { emit_enquoted_if_mapkey!(self, v) }
+    /// Emit a u64 value
     fn emit_u64(&mut self, v: u64) -> EncodeResult<()>      { emit_enquoted_if_mapkey!(self, v) }
+    /// Emit a u32 value
     fn emit_u32(&mut self, v: u32) -> EncodeResult<()>      { emit_enquoted_if_mapkey!(self, v) }
+    /// Emit a u16 value
     fn emit_u16(&mut self, v: u16) -> EncodeResult<()>      { emit_enquoted_if_mapkey!(self, v) }
+    /// Emit a u8 value
     fn emit_u8(&mut self, v: u8) -> EncodeResult<()>        { emit_enquoted_if_mapkey!(self, v) }
+    /// Emit a isize value
     fn emit_isize(&mut self, v: isize) -> EncodeResult<()>  { emit_enquoted_if_mapkey!(self, v) }
+    /// Emit a i64 value
     fn emit_i64(&mut self, v: i64) -> EncodeResult<()>      { emit_enquoted_if_mapkey!(self, v) }
+    /// Emit a i32 value
     fn emit_i32(&mut self, v: i32) -> EncodeResult<()>      { emit_enquoted_if_mapkey!(self, v) }
+    /// Emit a i16 value
     fn emit_i16(&mut self, v: i16) -> EncodeResult<()>      { emit_enquoted_if_mapkey!(self, v) }
+    /// Emit a i8 value
     fn emit_i8(&mut self, v: i8) -> EncodeResult<()>        { emit_enquoted_if_mapkey!(self, v) }
-
-
+    /// Emit a f64 value
     fn emit_f64(&mut self, v: f64) -> EncodeResult<()> {
         emit_enquoted_if_mapkey!(self, fmt_number_or_null(v))
     }
+    /// Emit a f32 value
     fn emit_f32(&mut self, v: f32) -> EncodeResult<()> {
         self.emit_f64(v as f64)
     }
 
-
+    /// Emit a boolean (#t / #f)
     fn emit_bool(&mut self, v: bool) -> EncodeResult<()> {
         if self.is_emitting_map_key { return Err(EncoderError::BadHashmapKey); }
         if v {
@@ -307,7 +308,10 @@ impl<'a> rustc_serialize::Encoder for Encoder<'a> {
         Ok(())
     }
 
+    /// Emit a char value.
     fn emit_char(&mut self, v: char) -> EncodeResult<()> { escape_char(self.writer, v) }
+
+    /// Emit a string value.
     fn emit_str(&mut self, v: &str) -> EncodeResult<()> { escape_str(self.writer, v) }
 
     fn emit_enum<F>(&mut self, _name: &str, f: F) -> EncodeResult<()> where
@@ -316,6 +320,7 @@ impl<'a> rustc_serialize::Encoder for Encoder<'a> {
         f(self)
     }
 
+    /// Emit a enumeration variant value with no or unnamed data.
     fn emit_enum_variant<F>(&mut self, name: &str, _id: usize, cnt: usize, f: F)
                             -> EncodeResult<()> where F: FnOnce(&mut Encoder<'a>) -> EncodeResult<()>,
     {
@@ -403,9 +408,11 @@ impl<'a> rustc_serialize::Encoder for Encoder<'a> {
     }
 
     /// Serialize a tuple
-    /// ```rust
-    /// assert_eq!(sexpr::encode(&(1, 2, 3)).unwrap(),
-    ///           "(1 2 3)");
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// assert_eq!(sexpr::encode(&(1, 2, 3)).unwrap(), "(1 2 3)");
     /// ```
     fn emit_tuple<F>(&mut self, len: usize, f: F) -> EncodeResult<()> where
         F: FnOnce(&mut Encoder<'a>) -> EncodeResult<()>,
@@ -421,12 +428,14 @@ impl<'a> rustc_serialize::Encoder for Encoder<'a> {
     }
 
     /// Serialize a tuple struct
-    /// ```rust
+    ///
+    /// # Examples
+    ///
+    /// ```
     /// #[derive(RustcEncodable, Debug)]
     /// struct TupleStruct(i32, i32, i32);
     /// let ts = TupleStruct(1, 2, 3);
-    /// assert_eq!(sexpr::encode(&ts).unwrap(),
-    ///           "((_field0 1) (_field1 2) (_field2 3))");
+    /// assert_eq!(sexpr::encode(&ts).unwrap(), "((_field0 1) (_field1 2) (_field2 3))");
     /// ```
     fn emit_tuple_struct<F>(&mut self, _: &str, len: usize, f: F) -> EncodeResult<()> where
         F: FnOnce(&mut Encoder<'a>) -> EncodeResult<()>,
@@ -442,7 +451,10 @@ impl<'a> rustc_serialize::Encoder for Encoder<'a> {
     }
 
     /// Serialize a nullable type.
-    /// ```rust
+    ///
+    /// # Examples
+    ///
+    /// ```
     /// #[derive(RustcEncodable)]
     /// struct Opt {
     ///     value: Option<i32>
@@ -496,14 +508,21 @@ impl<'a> rustc_serialize::Encoder for Encoder<'a> {
     }
 
     /// Serialize map-like structures
-    /// ```rust
+    ///
+    /// # Examples
+    ///
+    /// ```
     /// let ht = HashMap::new();
     /// ht.insert('a', 1);
     /// ht.insert('b', 2);
     /// assert_eq!(sexpr::encode(&ht).unwrap(), "((a . 1) (b . 2))")
     /// ```
-    /// WARNING: In order to distinguish a map from tuple-lists (proplists), we
-    /// use the very common S-expression 'pair syntax' extension. If your
+    ///
+    /// ## Warning
+    ///
+    /// There is no native way to represent maps in S-expression notation
+    /// without introducing another level of abstraction. We use the very common
+    /// S-expression 'pair syntax' extension to accommodate this. If your
     /// S-expression variant cannot handle pairs, please convert to proplists
     /// ahead of time.
     fn emit_map<F>(&mut self, len: usize, f: F) -> EncodeResult<()> where
