@@ -83,9 +83,9 @@
 //! ```
 extern crate rustc_serialize;
 use self::rustc_serialize::Encodable;
-use std::error::Error as StdError;
 use std::{char, f64, fmt, str};
 use std::io::Write;
+use error::EncoderError;
 use Sexp;
 
 impl Encodable for Sexp {
@@ -106,41 +106,6 @@ impl Encodable for Sexp {
         }
     }
 }
-
-#[derive(Copy, Debug)]
-pub enum EncoderError {
-    FmtError(fmt::Error),
-    BadHashmapKey,
-}
-
-impl PartialEq for EncoderError {
-    fn eq(&self, other: &EncoderError) -> bool {
-        match (*self, *other) {
-            (EncoderError::FmtError(_), EncoderError::FmtError(_)) => true,
-            (EncoderError::BadHashmapKey, EncoderError::BadHashmapKey) => true,
-            _ => false,
-        }
-    }
-}
-
-impl Clone for EncoderError {
-    fn clone(&self) -> Self { *self }
-}
-
-impl StdError for EncoderError {
-    fn description(&self) -> &str { "encoder error" }
-}
-
-impl fmt::Display for EncoderError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(&self, f)
-    }
-}
-
-impl From<fmt::Error> for EncoderError {
-    fn from(err: fmt::Error) -> EncoderError { EncoderError::FmtError(err) }
-}
-
 
 pub type EncodeResult<T> = Result<T, EncoderError>;
 
