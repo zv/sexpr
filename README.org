@@ -10,13 +10,11 @@
   protocols including:
 
   - Standard
-  - RFC 2693
-  - SMTLIBv2
+  - RFC 2693-compatible SPKI
+  - SMTLIB & SMTLIBv2
   - GPG / libgcrypt
   - KiCad
-  - R6RS-compatible
-  - Guile scheme
-  - Shen Lisp
+  - R5RS-compatible abstract-syntax
 
   Individual format options can be enabled or disabled, allowing you to parse
   virtually any variant.
@@ -58,20 +56,20 @@
     sexpr accepts numerous configuration 
 
 *** Predefined Configurations
-    | Name        | ~square_brackets~ | ~allow_comments~ | ~colon_keywords~ | ~hex_escapes~ | ~pipe_action~  | Notes                                                               |
-    |-------------+-------------------+------------------+------------------+---------------+----------------+---------------------------------------------------------------------|
-    | =STANDARD=  | ✓                 | ✗                | ✓                | ✓             | Base64Interior | A generic 'standard' s-expression                                   |
-    | =SMTLIB=    | ✗                 | ✓                | ✓                | ✗             | QuoteInterior  | A common interchange format for SAT and SMT solvers                 |
-    | =KICAD=     | ✓                 | ✓                | ✓                | ✓             | None           | A computer-aided design program                                     |
-    | =GUILE=     | ✓                 | ✓                | ✓                | ✓             | None           | A scheme intended for embedding in existing C programs              |
-    | =CANONICAL= | ✗                 | ✗                | ✗                | ✗             | None           | A common, interchangable encoding for many cryptographic protocols. |
+    | Name        | ~square_brackets~ | ~semi_comment~ | ~colon_keywords~ | ~hex_escapes~ | ~pipe_action~  | Notes                                                               |
+    |-------------+-------------------+----------------+------------------+---------------+----------------+---------------------------------------------------------------------|
+    | =STANDARD=  | ✓                 | ✗              | ✓                | ✓             | Base64Interior | A generic 'standard' s-expression                                   |
+    | =SMTLIB=    | ✗                 | ✓              | ✓                | ✗             | QuoteInterior  | A common interchange format for SAT and SMT solvers                 |
+    | =KICAD=     | ✓                 | ✓              | ✓                | ✓             | None           | A computer-aided design program                                     |
+    | =GUILE=     | ✓                 | ✓              | ✓                | ✓             | None           | A scheme intended for embedding in existing C programs              |
+    | =CANONICAL= | ✗                 | ✗              | ✗                | ✗             | None           | A common, interchangable encoding for many cryptographic protocols. |
 
    
 *** Configuration Variables
 
-**** =allow_comments=
+**** =semi_comment=
      Line comments can be enabled when parsing s-expressions by setting
-     ~allow_comments = Some(&["#", ";"])~.
+     ~semi_comment = Some(&["#", ";"])~.
 
      This ignores the rest of the stream until encountering a newline or EOF,
      this does *not* comment out interior s-expressions like proposals like [[http://srfi.schemers.org/srfi-62/srfi-62.html][SRFI
@@ -142,3 +140,61 @@
      If you'd like to add a new transport field, simple add to the
      TransportEncoding enum, and create a new trait that implements
      =SexpTransport=, the rest is handled for you.
+
+*** Encoding
+    
+**** Tuple
+***** Input
+      #+BEGIN_SRC rust
+      sexpr::encode(&(1, 2, 3));
+      #+END_SRC
+
+***** Result
+      #+BEGIN_EXAMPLE
+      (1 2 3)
+      #+END_EXAMPLE)
+
+
+**** Tuple Struct
+***** Input
+      #+BEGIN_SRC rust
+      #[derive(RustcEncodable, Debug)]
+      struct TupleStruct(i32, i32, i32);
+      let ts = TupleStruct(1, 2, 3);
+      sexpr::encode(&ts);
+      #+END_SRC
+
+***** Result
+      #+BEGIN_EXAMPLE
+      ((_field0 1) (_field1 2) (_field2 3))
+      #+END_EXAMPLE)
+     
+**** Hash Tables
+***** Input
+      #+BEGIN_SRC rust
+      let ht = HashMap::new();
+      ht.insert('a', 1);
+      ht.insert('b', 2);
+      ht.insert('c', 3);
+      sexpr::encode(&ht);
+      #+END_SRC
+
+***** Result
+      #+BEGIN_EXAMPLE
+      ((a . 1) (b . 2) (c . 3))
+      #+END_EXAMPLE)
+     
+
+**** Tuple Variants
+
+***** Input
+      #+BEGIN_SRC rust
+      struct Kangaroo(u32, String);
+      sexpr::encode(&Kangaroo(34, &"William");
+      #+END_SRC
+
+***** Result
+      #+BEGIN_EXAMPLE
+      ((variant kangaroo) 
+       (fields (34 "William)))
+      #+END_EXAMPLE
