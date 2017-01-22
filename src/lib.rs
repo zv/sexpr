@@ -229,6 +229,26 @@ impl Sexp {
 
         Sexp::Pair(r_car, r_cdr)
     }
+    /// Return a newly-created copy of lst with elements `PartialEq` to item
+    /// removed. This procedure mirrors `memq`: `delq` compares elements of lst
+    /// against item with eq?.
+    pub fn delq(&self, other: Sexp) -> Result<Sexp, ErrorCode> {
+        match *self {
+            List(ref elts) => {
+                // Build up a list of cloned elts, sans `other`
+                let lst = elts.iter()
+                    .filter(|x| **x != other)
+                    .map(|x| x.clone())
+                    .collect::<Vec<Sexp>>();
+
+                Ok(Sexp::List(lst))
+            }
+            // TODO: THIS IS FUCKED IN THE HEAD. TOO LAZY TO BUILD A NEW ERROR STRUCT????
+            // your friend
+            // -zv
+            _ => Err(ErrorCode::InvalidSyntax)
+        }
+    }
 }
 
 
@@ -279,11 +299,21 @@ mod tests {
         )
     }
 
-
     #[test]
     fn test_square_brackets() { assert_decoded("(a (b c (d)))", "(a [b c (d)])") }
 
     #[test]
     #[should_panic]
     fn test_square_bracket_balance() { assert_roundtrip("(a b (a [b c) d] e)") }
+
+
+    #[test]
+    fn test_remove_1() {
+        let lst = Sexp::from_str("(a b c d)").unwrap();
+        let lst_delq = Sexp::from_str("(b c d)").unwrap();
+        assert_eq!(
+            lst.delq(Sexp::Symbol(String::from("a"))).unwrap(),
+            lst_delq
+        )
+    }
 }
