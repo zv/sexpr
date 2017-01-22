@@ -164,12 +164,12 @@ impl Sexp {
 
     /// Return the first `Sexp` of self who is `eq` with `other`.
     /// If x does not occur in lst, then `SexpError::NotFound` is returned.
-    pub fn memq(&self, other: Sexp) -> Result<Sexp, SexpError> {
+    pub fn memq(&self, other: Sexp) -> Result<usize, SexpError> {
         match *self {
             List(ref elts) => {
                 // Build up a list of cloned elts, sans `other`
-                match elts.iter().find(|x| **x != other) {
-                    Some(elt) => Ok(elt.clone()),
+                match elts.iter().position(|x| *x == other) {
+                    Some(idx) => Ok(idx),
                     None => Err(NotFound)
                 }
             },
@@ -281,6 +281,7 @@ impl fmt::Display for Sexp {
 #[cfg(test)]
 mod tests {
     use ::Sexp;
+    use error::SexpError;
     use std::str::FromStr;
 
     fn roundtrip(sexp: &str) -> String {
@@ -340,6 +341,33 @@ mod tests {
         assert_eq!(
             lst.delq(Sexp::Symbol(String::from("a"))).unwrap(),
             lst_delq
+        )
+    }
+
+    #[test]
+    fn test_memq_1() {
+        let lst = Sexp::from_str("(a b c d)").unwrap();
+        assert_eq!(
+            lst.memq(Sexp::Symbol(String::from("a"))).unwrap(),
+            0
+        )
+    }
+
+    #[test]
+    fn test_memq_2() {
+        let lst = Sexp::from_str("(a b c d)").unwrap();
+        assert_eq!(
+            lst.memq(Sexp::Symbol(String::from("x"))),
+            Err(SexpError::NotFound)
+        )
+    }
+
+    #[test]
+    fn test_memq_3() {
+        let lst = Sexp::from_str("(a b c d)").unwrap();
+        assert_eq!(
+            lst.memq(Sexp::Symbol(String::from("d"))).unwrap(),
+            3
         )
     }
 }
