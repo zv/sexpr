@@ -6,8 +6,8 @@ use self::DecoderError::*;
 use std::{fmt};
 use std::error::Error as StdError;
 
-/// The errors that can arise while parsing a S-expression stream.
 
+/// The errors that can arise while parsing a S-expression stream.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ErrorCode {
     InvalidSyntax,
@@ -29,6 +29,20 @@ pub enum ErrorCode {
     TrailingCharacters,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum InvalidType {
+    ExpectingList,
+    ExpectingPair,
+    ExpectingNumber
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Errors for handling various selections
+pub enum SexpError {
+    InvalidType(InvalidType),
+    NotFound
+}
+
 #[derive(Debug)]
 pub enum ParserError {
     ///         msg,      line,   col
@@ -48,7 +62,6 @@ impl PartialEq for ParserError {
 impl StdError for ParserError {
     fn description(&self) -> &str { "failed to parse json" }
 }
-
 
 impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

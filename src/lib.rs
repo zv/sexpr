@@ -63,21 +63,24 @@
 extern crate rustc_serialize;
 use self::rustc_serialize::Encodable;
 
+use std::collections::BTreeMap;
 use std::fmt;
+use std::rc::Rc;
 use std::str::FromStr;
 use std::string::String;
-use std::collections::BTreeMap;
-use std::rc::Rc;
 
 mod config;
-mod parse;
-mod error;
-
-use parse::Parser;
-use error::{ ParserError, IntoAlistError };
 
 pub mod encodable;
 use encodable::{Encoder, EncodeResult};
+
+mod error;
+use error::{ErrorCode, ParserError, IntoAlistError, SexpError};
+use error::SexpError::*;
+use error::InvalidType::*;
+
+mod parse;
+use parse::Parser;
 
 // Rather than having a specialized 'nil' atom, we save space by letting `None`
 // here indicates 'nil'
@@ -103,44 +106,7 @@ pub enum Sexp {
     List(Vec<Sexp>)
 }
 
-
 use ::Sexp::*;
-
-impl FromStr for Sexp {
-    type Err = ParserError;
-
-    fn from_str(s: &str) -> Result<Sexp, Self::Err> {
-        let mut p = Parser::new(s.chars());
-        p.parse()
-    }
-}
-
-impl fmt::Display for Sexp {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Symbol(ref sym) | Keyword(ref sym)  =>
-                write!(f, "{}", sym),
-            String(ref string) => write!(f, "\"{}\"", string),
-            F64(num)           => write!(f, "{}", num),
-            I64(num)           => write!(f, "{}", num),
-            U64(num)           => write!(f, "{}", num),
-            Boolean(true)      => write!(f, "#t"),
-            Boolean(false)     => write!(f, "#f"),
-            List(ref elts)     => {
-                write!(f, "({})",
-                       elts // The following code joins the elements with a space separator
-                       .iter()
-                       .fold("".to_string(),
-                             |a,b| if a.len() > 0 { a + " "}
-                             else { a } + &b.to_string()))
-            },
-            Pair(Some(ref car), Some(ref cdr)) => write!(f, "({} . {})", car, cdr),
-            Pair(Some(ref car), None)      => write!(f, "({})", car),
-            Pair(None, Some(ref cdr))      => write!(f, "(() . {})", cdr),
-            Pair(None, None)           => write!(f, "(())"),
-        }
-    }
-}
 
 
 /// Shortcut function to encode a `T` into a JSON `String`
@@ -154,6 +120,63 @@ pub fn encode<T: Encodable>(object: &T) -> EncodeResult<String> {
 }
 
 impl Sexp {
+    /// Makes a new pair
+    fn new_pair(car: &Sexp, cdr: &Sexp) -> Sexp {
+        // If we've encountered an empty list, replace our cdr with `None`
+        let r_car: ConsCell;
+        let r_cdr: ConsCell;
+        r_car = Some(Rc::new(car.clone()));
+        match cdr {
+            &Sexp::List(ref elt) if elt.len() == 0 => r_cdr = None,
+            _ => r_cdr = Some(Rc::new(cdr.clone()))
+        }
+
+        Sexp::Pair(r_car, r_cdr)
+    }
+
+    /// Returns a string if the s-expression is a primitive value.
+    pub fn primitive_string(&self) -> Result<String, ErrorCode> {
+        match *self {
+            Keyword(ref s) | String(ref s) | Symbol(ref s) => Ok(s.to_owned()),
+            U64(n) => Ok(format!("{}", n)),
+            F64(n) => Ok(format!("{}", n)),
+            I64(n) => Ok(format!("{}", n)),
+            _ => Err(ErrorCode::InvalidAtom)
+        }
+    }
+    /// Return a newly-created copy of lst with elements `PartialEq` to item
+    /// removed. This procedure mirrors `memq`: `delq` compares elements of lst
+    /// against item with eq?.
+    pub fn delq(&self, other: Sexp) -> Result<Sexp, SexpError> {
+        match *self {
+            List(ref elts) => {
+                // Build up a list of cloned elts, sans `other`
+                let lst = elts.iter()
+                    .filter(|x| **x != other)
+                    .map(|x| x.clone())
+                    .collect::<Vec<Sexp>>();
+
+                Ok(Sexp::List(lst))
+            }
+            _ => Err(InvalidType(ExpectingList))
+        }
+    }
+
+    /// Return the first `Sexp` of self who is `eq` with `other`.
+    /// If x does not occur in lst, then `SexpError::NotFound` is returned.
+    pub fn memq(&self, other: Sexp) -> Result<Sexp, SexpError> {
+        match *self {
+            List(ref elts) => {
+                // Build up a list of cloned elts, sans `other`
+                match elts.iter().find(|x| **x != other) {
+                    Some(elt) => Ok(elt.clone()),
+                    None => Err(NotFound)
+                }
+            },
+            _ => Err(InvalidType(ExpectingList))
+        }
+    }
+
     /// Converts an alist structured S-expressions into a map.
     ///
     /// # Warning
@@ -215,41 +238,44 @@ impl Sexp {
 
         Ok(map)
     }
+}
 
-    /// Makes a new pair
-    fn new_pair(car: &Sexp, cdr: &Sexp) -> Sexp {
-        // If we've encountered an empty list, replace our cdr with `None`
-        let r_car: ConsCell;
-        let r_cdr: ConsCell;
-        r_car = Some(Rc::new(car.clone()));
-        match cdr {
-            &Sexp::List(ref elt) if elt.len() == 0 => r_cdr = None,
-            _ => r_cdr = Some(Rc::new(cdr.clone()))
-        }
+impl FromStr for Sexp {
+    type Err = ParserError;
 
-        Sexp::Pair(r_car, r_cdr)
+    fn from_str(s: &str) -> Result<Sexp, Self::Err> {
+        let mut p = Parser::new(s.chars());
+        p.parse()
     }
-    /// Return a newly-created copy of lst with elements `PartialEq` to item
-    /// removed. This procedure mirrors `memq`: `delq` compares elements of lst
-    /// against item with eq?.
-    pub fn delq(&self, other: Sexp) -> Result<Sexp, ErrorCode> {
-        match *self {
-            List(ref elts) => {
-                // Build up a list of cloned elts, sans `other`
-                let lst = elts.iter()
-                    .filter(|x| **x != other)
-                    .map(|x| x.clone())
-                    .collect::<Vec<Sexp>>();
+}
 
-                Ok(Sexp::List(lst))
-            }
-            // TODO: THIS IS FUCKED IN THE HEAD. TOO LAZY TO BUILD A NEW ERROR STRUCT????
-            // your friend
-            // -zv
-            _ => Err(ErrorCode::InvalidSyntax)
+impl fmt::Display for Sexp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Symbol(ref sym) | Keyword(ref sym)  =>
+                write!(f, "{}", sym),
+            String(ref string) => write!(f, "\"{}\"", string),
+            F64(num)           => write!(f, "{}", num),
+            I64(num)           => write!(f, "{}", num),
+            U64(num)           => write!(f, "{}", num),
+            Boolean(true)      => write!(f, "#t"),
+            Boolean(false)     => write!(f, "#f"),
+            List(ref elts)     => {
+                write!(f, "({})",
+                       elts // The following code joins the elements with a space separator
+                       .iter()
+                       .fold("".to_string(),
+                             |a,b| if a.len() > 0 { a + " "}
+                             else { a } + &b.to_string()))
+            },
+            Pair(Some(ref car), Some(ref cdr)) => write!(f, "({} . {})", car, cdr),
+            Pair(Some(ref car), None)      => write!(f, "({})", car),
+            Pair(None, Some(ref cdr))      => write!(f, "(() . {})", cdr),
+            Pair(None, None)           => write!(f, "(())"),
         }
     }
 }
+
 
 
 #[cfg(test)]
