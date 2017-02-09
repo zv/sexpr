@@ -61,7 +61,7 @@
 //! ```
 #![feature(box_patterns)]
 extern crate rustc_serialize;
-use self::rustc_serialize::Encodable;
+use self::rustc_serialize::{Decodable, Encodable};
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -73,6 +73,9 @@ mod config;
 
 pub mod encodable;
 use encodable::{Encoder, EncodeResult};
+
+pub mod decodable;
+use decodable::{Decoder, DecodeResult};
 
 mod error;
 use error::{ErrorCode, ParserError, IntoAlistError, SexpError};
@@ -108,8 +111,7 @@ pub enum Sexp {
 
 use ::Sexp::*;
 
-
-/// Shortcut function to encode a `T` into a JSON `String`
+/// Shortcut function to encode a `T` into a Sexp `String`
 pub fn encode<T: Encodable>(object: &T) -> EncodeResult<String> {
     let mut s = String::new();
     {
@@ -119,7 +121,34 @@ pub fn encode<T: Encodable>(object: &T) -> EncodeResult<String> {
     Ok(s)
 }
 
+/// Shortcut function to decode a Sexp `&str` into an object
+pub fn decode<T: ::Decodable>(s: &str) -> DecodeResult<T> {
+    let sexp = match Sexp::from_str(s) {
+        Ok(x) => x,
+        Err(e) => return Err(error::DecoderError::ParserError(e))
+    };
+
+    let mut decoder = Decoder::new(sexp);
+    ::Decodable::decode(&mut decoder)
+}
+
 impl Sexp {
+    /// This is an interim feature until `Index` is implemented
+    pub fn car(&self) -> Option<Sexp> {
+        match *self {
+            List(ref elts) => Some(elts[0].clone()),
+            _ => None
+        }
+    }
+
+    /// This is an interim feature until `Index` is implemented
+    pub fn cdr(&self) -> Option<Sexp> {
+        match *self {
+            List(ref elts) => Some(elts[1].clone()),
+            _ => None
+        }
+    }
+
     /// Makes a new pair
     fn new_pair(car: &Sexp, cdr: &Sexp) -> Sexp {
         // If we've encountered an empty list, replace our cdr with `None`
@@ -144,8 +173,43 @@ impl Sexp {
             _ => Err(ErrorCode::InvalidAtom)
         }
     }
+
+    /// For a sexp coded by string, remove by that very string.
+    pub fn remove_key(&mut self, other: String) -> Result<Sexp, SexpError> {
+        match *self {
+            List(ref mut elts) => {
+                match elts.iter()
+                    .position(|x| x.car().unwrap().primitive_string().unwrap() == other) {
+                    Some(idx) => {
+                        let value = elts[idx].clone();
+                        elts.remove(idx);
+                        Ok(value.cdr().unwrap())
+                    },
+                    None => Err(NotFound)
+                }
+            }
+            _ => Err(InvalidType(ExpectingList))
+        }
+    }
+
+    pub fn remove(&mut self, other: Sexp) -> Result<Sexp, SexpError> {
+        match *self {
+            List(ref mut elts) => {
+                match elts.iter().position(|x| *x == other) {
+                    Some(idx) => {
+                        let value = elts[idx].clone();
+                        elts.remove(idx);
+                        Ok(value)
+                    },
+                    None => Err(NotFound)
+                }
+            }
+            _ => Err(InvalidType(ExpectingList))
+        }
+    }
+
     /// Return a newly-created copy of lst with elements `PartialEq` to item
-    /// removed. This procedure mirrors `memq`: `delq` compares elements of lst
+    /// removed. This procedure mirrors `memq_index`: `delq` compares elements of lst
     /// against item with eq?.
     pub fn delq(&self, other: Sexp) -> Result<Sexp, SexpError> {
         match *self {
@@ -162,14 +226,31 @@ impl Sexp {
         }
     }
 
-    /// Return the first `Sexp` of self who is `eq` with `other`.
-    /// If x does not occur in lst, then `SexpError::NotFound` is returned.
-    pub fn memq(&self, other: Sexp) -> Result<usize, SexpError> {
+    /// Return the index `Sexp` of self who is `eq` with `other`. If x does not
+    /// occur in lst, then `SexpError::NotFound` is returned.
+    pub fn memq_index(&self, other: Sexp) -> Result<usize, SexpError> {
         match *self {
             List(ref elts) => {
                 // Build up a list of cloned elts, sans `other`
                 match elts.iter().position(|x| *x == other) {
                     Some(idx) => Ok(idx),
+                    None => Err(NotFound)
+                }
+            },
+            _ => Err(InvalidType(ExpectingList))
+        }
+    }
+
+    /// Return the first `Sexp` of self who is `eq` with `other`.
+    /// If x does not occur in lst, then `SexpError::NotFound` is returned.
+    pub fn member<P>(&self, pred: P) -> Result<Sexp, SexpError> where
+        Self: Sized, P: FnMut(&&Self) -> bool,
+    {
+        match *self {
+            List(ref elts) => {
+                // Build up a list of cloned elts, sans `other`
+                match elts.iter().find(pred) {
+                    Some(elt) => Ok(elt.clone()),
                     None => Err(NotFound)
                 }
             },
@@ -238,6 +319,11 @@ impl Sexp {
 
         Ok(map)
     }
+
+    pub fn symbol_from(sym: &str) -> Sexp {
+        Sexp::Symbol(String::from(sym))
+    }
+
 }
 
 impl FromStr for Sexp {
