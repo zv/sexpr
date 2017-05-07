@@ -11,6 +11,8 @@ documentation = "https://zv.github.io/rust/sexpr"
 [dependencies]
 clippy = {version = "*", optional = true}
 rustc-serialize = "0.3"
+serde = "1.0.2"
+serde_derive = "1.0.2"
 
 [[bin]]
 name = "main"

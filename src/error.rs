@@ -3,8 +3,11 @@ use self::ErrorCode::*;
 use self::ParserError::*;
 use self::DecoderError::*;
 
-use std::{fmt};
+use std;
+use std::fmt::{self, Display};
 use std::error::Error as StdError;
+
+use serde::{ser, de};
 
 
 /// The errors that can arise while parsing a S-expression stream.
@@ -93,43 +96,64 @@ pub enum IntoAlistError {
 //
 // Encoder
 //
+pub type SerdeResult<T> = Result<T, SerdeError>;
 
-#[derive(Copy, Debug)]
-/// Returns a readable error for `Encodable` faults
-pub enum EncoderError {
-    FmtError(fmt::Error),
-    #[allow(dead_code)]
-    BadHashmapKey,
+// This is a bare-bones implementation. A real library would provide additional
+// information in its error type, for example the line and column at which the
+// error occurred, the byte offset into the input, or the current key being
+// processed.
+#[derive(Clone, Debug, PartialEq)]
+pub enum SerdeError {
+    // One or more variants that can be created by data structures through the
+    // `ser::Error` and `de::Error` traits. For example the Serialize impl for
+    // Mutex<T> might return an error because the mutex is poisoned, or the
+    // Deserialize impl for a struct may return an error because a required
+    // field is missing.
+    Message(String),
+
+    // Zero or more variants that can be created directly by the Serializer and
+    // Deserializer without going through `ser::Error` and `de::Error`. These
+    // are specific to the format, in this case JSON.
+    Eof,
+    Syntax,
+    ExpectedBoolean,
+    ExpectedInteger,
+    ExpectedString,
+    ExpectedNull,
+    ExpectedArray,
+    ExpectedArrayComma,
+    ExpectedArrayEnd,
+    ExpectedMap,
+    ExpectedMapColon,
+    ExpectedMapComma,
+    ExpectedMapEnd,
+    ExpectedEnum,
+    TrailingCharacters,
 }
 
-impl PartialEq for EncoderError {
-    fn eq(&self, other: &EncoderError) -> bool {
-        match (*self, *other) {
-            (EncoderError::FmtError(_), EncoderError::FmtError(_)) => true,
-            (EncoderError::BadHashmapKey, EncoderError::BadHashmapKey) => true,
-            _ => false,
-        }
+impl ser::Error for SerdeError {
+    fn custom<T: Display>(msg: T) -> Self {
+        SerdeError::Message(msg.to_string())
     }
 }
 
-impl Clone for EncoderError {
-    fn clone(&self) -> Self { *self }
-}
-
-impl StdError for EncoderError {
-    fn description(&self) -> &str { "encoder error" }
-}
-
-impl fmt::Display for EncoderError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(&self, f)
+impl de::Error for SerdeError {
+    fn custom<T: Display>(msg: T) -> Self {
+        SerdeError::Message(msg.to_string())
     }
 }
 
-impl From<fmt::Error> for EncoderError {
-    fn from(err: fmt::Error) -> EncoderError { EncoderError::FmtError(err) }
+impl Display for SerdeError {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str(std::error::Error::description(self))
+    }
 }
 
+impl std::error::Error for SerdeError {
+    fn description(&self) -> &str {
+        "something is wrong"
+    }
+}
 //
 // Decoder
 //

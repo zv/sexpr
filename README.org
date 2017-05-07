@@ -142,52 +142,56 @@
      =SexpTransport=, the rest is handled for you.
 
 *** Encoding
+    There doesn't exist any canonical representation for a variety of data structures.
     
-**** Simple List
-***** Input
-      #+BEGIN_SRC rust :results pp :exports both
-      sexpr::encode(&(1, 2, 3));
-      #+END_SRC
-       #+RESULTS:
-       : (1 2 3)
+**** Sequences
+     #+BEGIN_SRC rust :results pp :exports both
+     let vec: Vec<i32> = vec![1,2,3];
+     sexpr::encode(&vec)
+     #+END_SRC
+     #+RESULTS:
+     : (1 2 3)
+
+     #+BEGIN_SRC rust :results pp :exports both
+     let hs: HashSet<i32> = vec!(1, 2, 3).into_iter().collect();
+     sexpr::encode(&hs)
+     #+END_SRC
+     #+RESULTS:
+     : (1 2 3)
+     
+**** Hash Tables
+     #+BEGIN_SRC rust :results pp :exports both
+     let ht = HashMap::new();
+     ht.insert('a', 1);
+     ht.insert('b', 2);
+     ht.insert('c', 3);
+     sexpr::encode(&ht);
+     #+END_SRC
+     #+RESULTS:
+     : ((a . 1) (b . 2) (c . 3))
 
 **** Tuple
 ***** Struct
-****** Input
-       #+BEGIN_SRC rust :results pp :exports both
-       #[derive(RustcEncodable, Debug)]
-       struct TupleStruct(i32, i32, i32);
-       let ts = TupleStruct(1, 2, 3);
-       sexpr::encode(&ts);
-       #+END_SRC
-       #+RESULTS:
-       : ((_field0 1) (_field1 2) (_field2 3))
-     
-**** Hash Tables
-***** Input
       #+BEGIN_SRC rust :results pp :exports both
-      let ht = HashMap::new();
-      ht.insert('a', 1);
-      ht.insert('b', 2);
-      ht.insert('c', 3);
-      sexpr::encode(&ht);
+      struct TupleStruct(i32, i32, i32);
+      let ts = TupleStruct(1, 2, 3);
+      sexpr::encode(&ts);
       #+END_SRC
       #+RESULTS:
-      : ((a . 1) (b . 2) (c . 3))
+      : ((_field0 1) (_field1 2) (_field2 3))
 
 **** Struct
 ***** Ordinary
-****** Input
-       #+BEGIN_SRC rust :results pp :exports both
-       struct Color {
+      #+BEGIN_SRC rust :results pp :exports both
+      struct Color {
            r: u8,
            g: u8,
            b: u8,
-       }
+      }
       sexpr::encode(&Color {r: 1, g: 2, b: 3});
-       #+END_SRC
-       #+RESULTS:
-       : ((variant color) ((r . 1) (g . 2) (b . 3)))
+      #+END_SRC
+      #+RESULTS:
+      : ((variant Color) ((r 1) (g 2) (b 3)))
 
 ***** Tuple Struct
       #+BEGIN_SRC rust :results pp :exports both
@@ -195,12 +199,31 @@
       sexpr::encode(&Kangaroo(34, &"William");
       #+END_SRC
       #+RESULTS:
-      : ((variant kangaroo) (fields (34 "William))
+      : ((variant Kangaroo) (34 "William"))
+
+***** Newtype
+      #+BEGIN_SRC rust :results pp :exports both
+      struct Inches(u64)
+      sexpr::encode(&Inches(128));
+      #+END_SRC
+      #+RESULTS:
+      : ((variant Inches) 128)
 
 ***** Unit 
-****** Input
-       #+BEGIN_SRC rust :results pp :exports both
-       struct Instance
-       #+END_SRC
-       #+RESULTS:
-       : ((variant instance))
+      #+BEGIN_SRC rust :results pp :exports both
+      struct Instance
+      #+END_SRC
+      #+RESULTS:
+      : ((variant Instance))
+
+**** Enum
+      #+BEGIN_SRC rust :results pp :exports both
+      enum E {
+          W,
+          Y,
+          Z,
+      }
+      sexpr::encode(E::Z);
+      #+END_SRC
+      #+RESULTS:
+      : Z
