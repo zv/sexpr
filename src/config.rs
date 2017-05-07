@@ -1,4 +1,5 @@
 // Contains the configuration parameters to the parser
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ParsePipeBehavior {
     // Accept a base64 encoding of the octet string, e.g (|NFGq/E3wh9f4rJIQVXhS|)

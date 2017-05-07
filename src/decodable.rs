@@ -1,3 +1,7 @@
+// Decodable is in very prototypical state -- some features of it are totally
+// untested and almost certainly wrong.
+
+
 extern crate rustc_serialize;
 use self::rustc_serialize::Decodable;
 use std::{char, f64, fmt, str};

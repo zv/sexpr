@@ -36,6 +36,8 @@ impl<T: Iterator<Item = char>> Parser<T> {
         p
     }
 
+    /// Advance the head to the next 'character', whatever that designation
+    /// implies for a particular parser-configuration.
     fn bump(&mut self) {
         self.ch = self.reader.next();
 
@@ -62,10 +64,12 @@ impl<T: Iterator<Item = char>> Parser<T> {
     fn eof(&self) -> bool { self.ch.is_none() }
     fn ch_or_null(&self) -> char { self.ch.unwrap_or('\x00') }
 
+    /// Consume tokens until a newline or other comment terminator
     fn parse_comment(&mut self) {
         while !self.ch_is('\n') { self.bump(); }
     }
 
+    /// Consume tokens until the head is no longer 'whitespace'
     fn parse_whitespace(&mut self) {
         while self.ch_is(' ') ||
             self.ch_is('\n') ||
@@ -73,7 +77,13 @@ impl<T: Iterator<Item = char>> Parser<T> {
             self.ch_is('\r') { self.bump(); }
     }
 
+    // `parse_symbol` reads in any bare atom not otherwise handled by other
+    // 'arms' of the recursive descent parser. In some s-expression variants,
+    // this is technically invalid. If your use-case needs to be restrictive in
+    // which s-expressions you accept, consider modifying the configuration to
+    // bail on particular tokens.
     fn parse_symbol(&mut self) -> Option<String> {
+        debug("Parsing symbol");
         let mut result = String::new();
         loop {
             // In cases with large number of or-cases, it's more convienent to
@@ -92,6 +102,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
             self.bump();
         }
 
+        // A 0-length symbol isn't one at all -- Return none.
         if result.len() > 0 {
             Some(result)
         } else {
@@ -115,6 +126,8 @@ impl<T: Iterator<Item = char>> Parser<T> {
         }
     }
 
+    // `parse_string` reads in a string, which can contain a variety of control
+    // characters, unicode escapes and other sub-languages.
     fn parse_string(&mut self) -> ParseResult {
         debug("Parsing String");
         let mut result = String::new();
@@ -156,46 +169,10 @@ impl<T: Iterator<Item = char>> Parser<T> {
         }
     }
 
-    fn parse_hexadecimal(&mut self) -> ParseResult {
-        debug("Parsing Hexadecimal");
-        let mut accumulator: u64 = 0; // Could be shortened to acc ...
-        let mut length: usize = 0;
-
-        if self.next_char() != Some('x') {
-            return self.error(UnrecognizedHex);
-        }
-
-        while !self.eof() {
-            let significand: u64;
-            // Take out the last digit, shift the base by 10 and add the
-            // least significant digit
-            match self.next_char() {
-                Some(c @ '0' ... '9') =>
-                    significand = (c as u8 - b'0') as u64,
-                Some(c @ 'a' ... 'f') =>
-                    significand = (c as u8 - b'a') as u64 + 10,
-                Some(c @ 'A' ... 'F') =>
-                    significand = (c as u8 - b'A') as u64 + 10,
-                // DRYing this out is tough: Patterns are a 'metafeature' and
-                // can't be enconded in a variable - a function could perhaps
-                // replace this.
-                Some(' ') | Some('\t') | Some('\n') | Some(')') => break,
-                _ => return self.error(InvalidNumber)
-            }
-
-            length += 1;
-            accumulator = accumulator * 10 + significand;
-        }
-
-        if length == 0 {
-            // a length of 0 means we've encountered "#x" - Invalid
-            self.error(UnexpectedEndOfHexEscape)
-        } else {
-            Ok(Sexp::U64(accumulator))
-        }
-    }
-
-
+    // `parse_numeric` is responsible for the variety of numbers that Sexpr can
+    // handle. It implements a strait-forward algorithm of reading until a space
+    // occurs, at which point any of the various modifiers (such as "negative"
+    // or "decimal") are applied
     fn parse_numeric(&mut self) -> ParseResult {
         debug("Parsing Numeric");
         let mut result: String = self.ch.unwrap().to_string();
@@ -225,6 +202,56 @@ impl<T: Iterator<Item = char>> Parser<T> {
         }
     }
 
+    // `parse_hexadecimal` handles a special case of parsing numeric values.
+    // Like `parse_numeric`, it reads until it encounters a space, applying
+    // appropriate 'modifiers', bailing out if a modifier is invalid for a
+    // particular configuration.
+    fn parse_hexadecimal(&mut self) -> ParseResult {
+        debug("Parsing Hexadecimal");
+        let mut accumulator: u64 = 0; // Could be shortened to acc ...
+        let mut length: usize = 0;
+
+        if self.next_char() != Some('x') {
+            return self.error(UnrecognizedHex);
+        }
+
+        while !self.eof() {
+            let significand: u64;
+            // Take out the last digit, shift the base by 10 and add the
+            // least significant digit
+            match self.next_char() {
+                Some(c @ '0' ... '9') =>
+                    significand = (c as u8 - b'0') as u64,
+                Some(c @ 'a' ... 'f') =>
+                    significand = (c as u8 - b'a') as u64 + 10,
+                Some(c @ 'A' ... 'F') =>
+                    significand = (c as u8 - b'A') as u64 + 10,
+                // DRYing this out is tough: Patterns are a 'metafeature' and
+                // can't be enconded in a variable - a function could perhaps
+                // replace this.
+                Some(' ') | Some('\t') | Some('\n') | Some(')') => break,
+                None => unreachable!(),
+                _ => return self.error(InvalidNumber),
+            }
+
+            length += 1;
+            accumulator = accumulator * 10 + significand;
+        }
+
+        if length == 0 {
+            // a length of 0 means we've encountered "#x" - Invalid
+            self.error(UnexpectedEndOfHexEscape)
+        } else {
+            Ok(Sexp::U64(accumulator))
+        }
+    }
+
+    // `parse_list` is called when we've encountered a bracket (paren or square
+    // bracket).
+    // the `opening_ch` signifies what variety of bracket we're dealing with.
+    // Knowing which bracket allows us to hold multiple different 'stacks' of
+    // s-expressions, each with their own brackets:
+    // e.g (a [b c (d e [f g])])
     fn parse_list(&mut self, opening_ch: char) -> ParseResult {
         let mut result: Vec<Sexp> = vec![];
 
