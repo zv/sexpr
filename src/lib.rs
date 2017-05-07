@@ -431,29 +431,33 @@ mod tests {
     }
 
     #[test]
-    fn test_memq_1() {
+    fn test_memq_index_1() {
         let lst = Sexp::from_str("(a b c d)").unwrap();
-        assert_eq!(
-            lst.memq(Sexp::Symbol(String::from("a"))).unwrap(),
-            0
-        )
+        assert_eq!(lst.memq_index(Sexp::Symbol(String::from("a"))).unwrap(), 0)
     }
 
     #[test]
-    fn test_memq_2() {
+    fn test_memq_index_2() {
         let lst = Sexp::from_str("(a b c d)").unwrap();
-        assert_eq!(
-            lst.memq(Sexp::Symbol(String::from("x"))),
-            Err(SexpError::NotFound)
-        )
+        assert_eq!(lst.memq_index(Sexp::Symbol(String::from("x"))), Err(SexpError::NotFound))
     }
 
     #[test]
-    fn test_memq_3() {
+    fn test_memq_index_3() {
         let lst = Sexp::from_str("(a b c d)").unwrap();
-        assert_eq!(
-            lst.memq(Sexp::Symbol(String::from("d"))).unwrap(),
-            3
-        )
+        assert_eq!(lst.memq_index(Sexp::Symbol(String::from("d"))).unwrap(), 3)
+    }
+
+    #[test]
+    fn test_member_1() {
+        let lst = Sexp::from_str("((variant kang) (fields a b c))").unwrap();
+        let mut res: Vec<Sexp> = vec![];
+        match lst.member(|sexp: &&Sexp| sexp.car().unwrap() == Sexp::symbol_from("variant")) {
+            Ok(Sexp::List(result)) => res = result,
+            _ => ()
+        }
+
+        assert_eq!(res[0], Sexp::symbol_from("variant"));
+        assert_eq!(res[1], Sexp::symbol_from("kang"));
     }
 }
