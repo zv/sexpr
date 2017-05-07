@@ -132,7 +132,7 @@
      encoding, [[https://tools.ietf.org/html/rfc4648][RFC 4648 Base64]]. To indicate that you'd like to encode or decode
      an S-expression as Base64, you can modify your configuration as following.
 
-     #+BEGIN_SRC rust
+     #+BEGIN_SRC rust :results pp :exports both
      let mut config = STANDARD.copy()
      mut.transport = TransportEncoding::Base64
      #+END_SRC
@@ -143,58 +143,64 @@
 
 *** Encoding
     
-**** Tuple
+**** Simple List
 ***** Input
-      #+BEGIN_SRC rust
+      #+BEGIN_SRC rust :results pp :exports both
       sexpr::encode(&(1, 2, 3));
       #+END_SRC
+       #+RESULTS:
+       : (1 2 3)
 
-***** Result
-      #+BEGIN_EXAMPLE
-      (1 2 3)
-      #+END_EXAMPLE)
-
-
-**** Tuple Struct
-***** Input
-      #+BEGIN_SRC rust
-      #[derive(RustcEncodable, Debug)]
-      struct TupleStruct(i32, i32, i32);
-      let ts = TupleStruct(1, 2, 3);
-      sexpr::encode(&ts);
-      #+END_SRC
-
-***** Result
-      #+BEGIN_EXAMPLE
-      ((_field0 1) (_field1 2) (_field2 3))
-      #+END_EXAMPLE)
+**** Tuple
+***** Struct
+****** Input
+       #+BEGIN_SRC rust :results pp :exports both
+       #[derive(RustcEncodable, Debug)]
+       struct TupleStruct(i32, i32, i32);
+       let ts = TupleStruct(1, 2, 3);
+       sexpr::encode(&ts);
+       #+END_SRC
+       #+RESULTS:
+       : ((_field0 1) (_field1 2) (_field2 3))
      
 **** Hash Tables
 ***** Input
-      #+BEGIN_SRC rust
+      #+BEGIN_SRC rust :results pp :exports both
       let ht = HashMap::new();
       ht.insert('a', 1);
       ht.insert('b', 2);
       ht.insert('c', 3);
       sexpr::encode(&ht);
       #+END_SRC
+      #+RESULTS:
+      : ((a . 1) (b . 2) (c . 3))
 
-***** Result
-      #+BEGIN_EXAMPLE
-      ((a . 1) (b . 2) (c . 3))
-      #+END_EXAMPLE)
-     
+**** Struct
+***** Ordinary
+****** Input
+       #+BEGIN_SRC rust :results pp :exports both
+       struct Color {
+           r: u8,
+           g: u8,
+           b: u8,
+       }
+      sexpr::encode(&Color {r: 1, g: 2, b: 3});
+       #+END_SRC
+       #+RESULTS:
+       : ((variant color) ((r . 1) (g . 2) (b . 3)))
 
-**** Tuple Variants
-
-***** Input
-      #+BEGIN_SRC rust
+***** Tuple Struct
+      #+BEGIN_SRC rust :results pp :exports both
       struct Kangaroo(u32, String);
       sexpr::encode(&Kangaroo(34, &"William");
       #+END_SRC
+      #+RESULTS:
+      : ((variant kangaroo) (fields (34 "William))
 
-***** Result
-      #+BEGIN_EXAMPLE
-      ((variant kangaroo) 
-       (fields (34 "William)))
-      #+END_EXAMPLE
+***** Unit 
+****** Input
+       #+BEGIN_SRC rust :results pp :exports both
+       struct Instance
+       #+END_SRC
+       #+RESULTS:
+       : ((variant instance))
