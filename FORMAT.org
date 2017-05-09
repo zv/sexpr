@@ -1,0 +1,108 @@
+* A Canonical S-Expression Format
+  In a 2012 Dr. Dobb's retrospective, Karl Eiger noted that S-expressions are
+  have been in continuous use longer than any other formats that remain in widespread use today.
+
+* Formatting Parameters
+** ~dotted_pair~
+   A variety of structures like hash tables can be serialized as basic lists or
+   as a list of dotted-pair cons cells.
+
+   Values:
+   - ~true~
+   - ~false~
+
+
+** ~format_nil~
+   Nil is traditionally encoded as the empty list (=()=), however this can lead
+   to problems in structures which need to serialize fields like
+   ~Option<Vec<T>>~, where both ~None~ and ~Some([])~ will serialize to the
+   empty list.
+
+   Possible values:
+   - ~empty_list~ :: =()=
+   - ~hash~ ::  =#nil=
+   - ~nul~ ::  =nul=
+
+*)) Types
+** Hash Tables
+   #+BEGIN_SRC  rust
+ let ht = HashMap::new();
+ ht.insert("APPLES", 1);
+ ht.insert("ORANGE", 2);
+ ht.insert("STRAWBERRIES", 3);
+   #+END_SRC
+
+*** Basic
+    : ((APPLES 1) (ORANGES 2) (STRAWBERRIES 3))
+    : ((APPLES . 1) (ORANGES . 2) (STRAWBERRIES . 3))
+
+*** Explicit (distinguishes between data structures)
+    : ((variant HashMap) ((APPLES 1) (ORANGES 2) (STRAWBERRIES 3)))
+
+*** Initializer
+    : (dict ((APPLES 1) 
+    :        (ORANGES 2) 
+    :        (STRAWBERRIES 3)))
+
+*** Keyword #:REQUIRES keyword
+    : ((:APPLES 1 :ORANGES 2 :STRAWBERRIES 3))
+
+** Struct 
+
+*** Simple
+    #+BEGIN_SRC  rust
+  struct Color {
+    r: u8,
+    g: u8,
+    b: u8,
+  }
+
+  Color { r: 254, g: 1, b: 10 }
+    #+END_SRC
+
+**** Basic
+     : ((r 254) (g 1) (b 10))
+
+**** Explicit
+     : ((variant Color) ((r 254) (g 1) (b 10)))
+
+**** Initializer
+     : (Color :r 254 :g 1 :b 10)
+
+*** Option
+    #+BEGIN_SRC rust
+    struct Foo {
+      x: Option<isize>
+    }
+   
+    Foo { x: None }
+    Foo { x: Some(5) }
+    #+END_SRC
+
+**** Basic
+     The representation of =#nil= can be configured.
+     : ((x 5))
+     : ((x #nil))
+
+**** Explicit
+     : ((variant Foo) (x None))
+     : ((variant Foo) (x 5))
+
+*** Simple
+    #+BEGIN_SRC rust
+  (1,2,3)
+    #+END_SRC
+**** Basic
+     : (1 2 3)
+**** Explicit
+     : ((_field0 1) (_field1 2) (_field2 3))
+
+** Vec<u8> or &[u8]
+   #+BEGIN_SRC rust
+   &[41, 41, 19, 1]
+   #+END_SRC
+*** Basic
+    : (41 41 19 1)
+
+*** Lisp
+    : #(41 41 19 1)
