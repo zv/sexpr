@@ -9,7 +9,6 @@ use std::error::Error as StdError;
 
 use serde::{ser, de};
 
-
 /// The errors that can arise while parsing a S-expression stream.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ErrorCode {
