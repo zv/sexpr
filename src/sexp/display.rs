@@ -22,12 +22,11 @@ impl FromStr for Sexp {
 impl fmt::Display for Sexp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Nil => write!(f, "nil"),
             Symbol(ref sym) | Keyword(ref sym)  =>
                 write!(f, "{}", sym),
             String(ref string) => write!(f, "\"{}\"", string),
-            F64(num)           => write!(f, "{}", num),
-            I64(num)           => write!(f, "{}", num),
-            U64(num)           => write!(f, "{}", num),
+            Number(ref num)    => write!(f, "{}", num),
             Boolean(true)      => write!(f, "#t"),
             Boolean(false)     => write!(f, "#f"),
             List(ref elts)     => {

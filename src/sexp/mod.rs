@@ -67,6 +67,8 @@ use error::{ErrorCode, IntoAlistError, SexpError};
 use error::SexpError::*;
 use error::InvalidType::*;
 
+pub use number::Number;
+
 mod display;
 
 // Rather than having a specialized 'nil' atom, we save space by letting `None`
@@ -76,17 +78,18 @@ type ConsCell = Option<SexpPtr>;
 
 /// An s-expression is either an atom or a list of s-expressions. This is
 /// similar to the data format used by lisp.
-#[derive(PartialEq, PartialOrd, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum Sexp {
+    /// A special nil symbol
+    Nil,
     /// A symbol or alist key
     Symbol(String),
     /// A UTF-8 String
     String(String),
     /// A keyword consists of a `:` (colon) followed by valid symbol characters.
     Keyword(String),
-    I64(i64),
-    U64(u64),
-    F64(f64),
+    /// Represents a JSON string
+    Number(Number),
     Boolean(bool),
     /// A classic 'cons cell' structure whose elts are themselves cons-cells.
     Pair(ConsCell, ConsCell),
@@ -130,9 +133,7 @@ impl Sexp {
     pub fn primitive_string(&self) -> Result<String, ErrorCode> {
         match *self {
             Keyword(ref s) | String(ref s) | Symbol(ref s) => Ok(s.to_owned()),
-            U64(n) => Ok(format!("{}", n)),
-            F64(n) => Ok(format!("{}", n)),
-            I64(n) => Ok(format!("{}", n)),
+            Number(ref n) => Ok(format!("{}", n)),
             _ => Err(ErrorCode::InvalidAtom)
         }
     }

@@ -7,6 +7,7 @@ use error::ErrorCode::*;
 use error::ParserError;
 use error::ParserError::*;
 use config::{STANDARD, ParseConfig};
+use number::Number;
 
 type ParseResult = Result<Sexp, ParserError>;
 
@@ -65,12 +66,12 @@ impl<T: Iterator<Item = char>> Parser<T> {
     fn ch_or_null(&self) -> char { self.ch.unwrap_or('\x00') }
 
     /// Consume tokens until a newline or other comment terminator
-    fn parse_comment(&mut self) {
+    pub fn parse_comment(&mut self) {
         while !self.ch_is('\n') { self.bump(); }
     }
 
     /// Consume tokens until the head is no longer 'whitespace'
-    fn parse_whitespace(&mut self) {
+    pub fn parse_whitespace(&mut self) {
         while self.ch_is(' ') ||
             self.ch_is('\n') ||
             self.ch_is('\t') ||
@@ -82,7 +83,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
     // this is technically invalid. If your use-case needs to be restrictive in
     // which s-expressions you accept, consider modifying the configuration to
     // bail on particular tokens.
-    fn parse_symbol(&mut self) -> Option<String> {
+    pub fn parse_symbol(&mut self) -> Option<String> {
         debug("Parsing symbol");
         let mut result = String::new();
         loop {
@@ -110,7 +111,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
         }
     }
 
-    fn parse_atom(&mut self) -> ParseResult {
+    pub fn parse_atom(&mut self) -> ParseResult {
         debug("Parsing Atom");
         match self.parse_symbol() {
             Some(atom) => Ok(Sexp::Symbol(atom)),
@@ -118,7 +119,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
         }
     }
 
-    fn parse_keyword(&mut self) -> ParseResult {
+    pub fn parse_keyword(&mut self) -> ParseResult {
         debug("Parsing Keyword");
         match self.parse_symbol() {
             Some(atom) => Ok(Sexp::Keyword(atom)),
@@ -128,7 +129,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
 
     // `parse_string` reads in a string, which can contain a variety of control
     // characters, unicode escapes and other sub-languages.
-    fn parse_string(&mut self) -> ParseResult {
+    pub fn parse_string(&mut self) -> ParseResult {
         debug("Parsing String");
         let mut result = String::new();
         let mut escape = false;
@@ -173,7 +174,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
     // handle. It implements a strait-forward algorithm of reading until a space
     // occurs, at which point any of the various modifiers (such as "negative"
     // or "decimal") are applied
-    fn parse_numeric(&mut self) -> ParseResult {
+    pub fn parse_numeric(&mut self) -> ParseResult {
         debug("Parsing Numeric");
         let mut result: String = self.ch.unwrap().to_string();
         let mut is_float = false;
@@ -190,13 +191,13 @@ impl<T: Iterator<Item = char>> Parser<T> {
         if is_float {
             let n = result.parse::<f64>();
             match n {
-                Ok(num) => Ok(Sexp::F64(num)),
+                Ok(num) => Ok(Number::from_f64(num).map_or(Sexp::Nil, Sexp::Number)),
                 Err(_) => self.error(InvalidNumber)
             }
         } else {
             let n = result.parse::<i64>();
             match n {
-                Ok(num) => Ok(Sexp::I64(num)),
+                Ok(num) => Ok(Sexp::Number(num.into())),
                 Err(_) => self.error(InvalidNumber)
             }
         }
@@ -206,7 +207,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
     // Like `parse_numeric`, it reads until it encounters a space, applying
     // appropriate 'modifiers', bailing out if a modifier is invalid for a
     // particular configuration.
-    fn parse_hexadecimal(&mut self) -> ParseResult {
+    pub fn parse_hexadecimal(&mut self) -> ParseResult {
         debug("Parsing Hexadecimal");
         let mut accumulator: u64 = 0; // Could be shortened to acc ...
         let mut length: usize = 0;
@@ -242,7 +243,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
             // a length of 0 means we've encountered "#x" - Invalid
             self.error(UnexpectedEndOfHexEscape)
         } else {
-            Ok(Sexp::U64(accumulator))
+            Ok(Sexp::Number(accumulator.into()))
         }
     }
 
@@ -252,7 +253,7 @@ impl<T: Iterator<Item = char>> Parser<T> {
     // Knowing which bracket allows us to hold multiple different 'stacks' of
     // s-expressions, each with their own brackets:
     // e.g (a [b c (d e [f g])])
-    fn parse_list(&mut self, opening_ch: char) -> ParseResult {
+    pub fn parse_list(&mut self, opening_ch: char) -> ParseResult {
         let mut result: Vec<Sexp> = vec![];
 
         loop {

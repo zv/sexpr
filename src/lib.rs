@@ -77,5 +77,6 @@ mod parse;
 
 pub mod sexp;
 #[doc(inline)]
-pub use self::sexp::Sexp;
+pub use self::sexp::{Sexp, Number};
 
+mod number;
