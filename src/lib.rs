@@ -63,11 +63,7 @@
 extern crate rustc_serialize;
 extern crate serde;
 
-mod serializer;
 #[doc(inline)]
-pub use serializer::{to_string, Serializer};
-
-use std::fmt;
 
 pub mod config;
 
