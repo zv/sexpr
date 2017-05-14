@@ -3,21 +3,8 @@ use super::Sexp::*;
 
 use std::str::FromStr;
 
-use error::ParserError;
-
-use parse::Parser;
-
-use fmt;
-use fmt::{Formatter};
-
-impl FromStr for Sexp {
-    type Err = ParserError;
-
-    fn from_str(s: &str) -> Result<Sexp, Self::Err> {
-        let mut p = Parser::new(s.chars());
-        p.parse()
-    }
-}
+use std::fmt;
+use std::fmt::{Formatter};
 
 impl fmt::Display for Sexp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
