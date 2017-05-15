@@ -61,9 +61,12 @@
 //! ```
 #![feature(box_patterns)]
 
-extern crate core;
+extern crate num_traits;
+// extern crate core;
 #[macro_use]
 extern crate serde;
+extern crate itoa;
+extern crate dtoa;
 
 #[doc(inline)]
 pub use self::de::{Deserializer, StreamDeserializer, from_reader, from_slice, from_str};
@@ -72,7 +75,7 @@ pub use self::error::{Error, Result};
 #[doc(inline)]
 pub use ser::{to_string, Serializer};
 #[doc(inline)]
-pub use self::sexp::{Sexp, Number};
+pub use self::sexp::{Sexp, Number, from_value, to_value};
 
 pub mod de;
 pub mod error;
