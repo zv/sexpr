@@ -4,13 +4,14 @@ use error::{Error, ErrorCode};
 use number::Number;
 use sexp::{Sexp, to_value};
 
+
 impl Serialize for Sexp {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: ::serde::Serializer,
     {
         match *self {
-            // Sexp::Null => serializer.serialize_unit(),
+            Sexp::Nil => serializer.serialize_unit(),
             Sexp::Boolean(b) => serializer.serialize_bool(b),
             Sexp::Number(ref n) => n.serialize(serializer),
             Sexp::Symbol(ref sym) => serializer.serialize_str(sym),
@@ -63,7 +64,7 @@ impl serde::Serializer for Serializer {
     }
 
     fn serialize_i64(self, value: i64) -> Result<Sexp, Error> {
-        Ok(Sexp::I64(value.into()))
+        Ok(Sexp::Number(value.into()))
     }
 
     #[inline]
@@ -83,7 +84,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_u64(self, value: u64) -> Result<Sexp, Error> {
-        Ok(Sexp::U64(value.into()))
+        Ok(Sexp::Number(value.into()))
     }
 
     #[inline]
@@ -93,7 +94,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_f64(self, value: f64) -> Result<Sexp, Error> {
-        Ok(Number::from_f64(value).map_or(Sexp::List([]), Sexp::F64))
+        Ok(Number::from_f64(value).map_or(Sexp::Nil, Sexp::Number))
     }
 
     #[inline]
@@ -109,13 +110,13 @@ impl serde::Serializer for Serializer {
     }
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Sexp, Error> {
-        let vec = value.iter().map(|&b| Sexp::U64(b.into())).collect();
-        Ok(Sexp::Array(vec))
+        let vec = value.iter().map(|&b| Sexp::Number(b.into())).collect();
+        Ok(Sexp::List(vec))
     }
 
     #[inline]
     fn serialize_unit(self) -> Result<Sexp, Error> {
-        Ok(Sexp::List([]))
+        Ok(Sexp::Nil)
     }
 
     #[inline]
@@ -249,7 +250,7 @@ impl serde::ser::SerializeSeq for SerializeVec {
     }
 
     fn end(self) -> Result<Sexp, Error> {
-        Ok(Sexp::Array(self.vec))
+        Ok(Sexp::List(self.vec))
     }
 }
 
@@ -316,7 +317,7 @@ impl serde::ser::SerializeMap for SerializeMap {
         T: Serialize,
     {
         match try!(to_value(&key)) {
-            Sexp::Atom(s) => self.next_key = Some(s),
+            Sexp::Symbol(s) => self.next_key = Some(s),
             Sexp::String(s) => self.next_key = Some(s),
             Sexp::Number(n) => {
                 if n.is_u64() || n.is_i64() {
@@ -334,16 +335,11 @@ impl serde::ser::SerializeMap for SerializeMap {
     where
         T: Serialize,
     {
-        let key = self.next_key.take();
-        // Panic because this indicates a bug in the program rather than an
-        // expected failure.
-        let key = key.expect("serialize_value called before serialize_key");
-        self.map.insert(key, try!(to_value(&value)));
-        Ok(())
+        unimplemented!()
     }
 
     fn end(self) -> Result<Sexp, Error> {
-        Ok(Sexp::Object(self.map))
+        unimplemented!()
     }
 }
 
@@ -379,12 +375,12 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
         T: Serialize,
     {
         self.values.push(
-            Sexp::Pair(Some(Rc::new(String::from(key))), to_value(&value).ok().map(|v| Rc::new(v)))
+            Sexp::new_entry(key, to_value(&value).ok().unwrap_or(Sexp::Nil))
         );
         Ok(())
     }
 
     fn end(self) -> Result<Sexp, Error> {
-        Ok(Sexp::Pair(Ok(self.name), Ok(self.values)))
+        Ok(Sexp::new_entry(self.name, Sexp::List(self.values)))
     }
 }
