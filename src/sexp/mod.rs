@@ -59,22 +59,27 @@
 
 //! println!("Colorado's Capital is: {}", decoded.get("Colorado"))
 //! ```
+use std::fmt::Display;
 use std::i64;
 use std::str;
-use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::string::String;
 
 use serde::ser::Serialize;
 use serde::de::DeserializeOwned;
 
-use error::Error;
+use std::rc::Rc;
+
+use error::{Error, ErrorCode};
 pub use number::Number;
+
+mod index;
+pub use self::index::Index;
 
 use self::ser::Serializer;
 
 // Rather than having a specialized 'nil' atom, we save space by letting `None`
 // here indicates 'nil'
-type SexpPtr = Rc<Sexp>;
+type SexpPtr = Box<Sexp>;
 type ConsCell = Option<SexpPtr>;
 
 /// An s-expression is either an atom or a list of s-expressions. This is
@@ -89,7 +94,7 @@ pub enum Sexp {
     String(String),
     /// A keyword consists of a `:` (colon) followed by valid symbol characters.
     Keyword(String),
-    /// Represents a JSON string
+    /// Represents a Sexp number
     Number(Number),
     Boolean(bool),
     /// A classic 'cons cell' structure whose elts are themselves cons-cells.
@@ -97,294 +102,203 @@ pub enum Sexp {
     List(Vec<Sexp>),
 }
 
-use ::Sexp::*;
+mod ser;
+mod de;
 
 impl Sexp {
-    /// This is an interim feature until `Index` is implemented
-    pub fn car(&self) -> Option<Sexp> {
-        match *self {
-            List(ref elts) => Some(elts[0].clone()),
-            _ => None
-        }
-    }
-
-    /// This is an interim feature until `Index` is implemented
-    pub fn cdr(&self) -> Option<Sexp> {
-        match *self {
-            List(ref elts) => Some(elts[1].clone()),
-            _ => None
-        }
-    }
-
-    /// Makes a new pair
-    pub fn new_pair(car: &Sexp, cdr: &Sexp) -> Sexp {
-        // If we've encountered an empty list, replace our cdr with `None`
-        let r_car: ConsCell;
-        let r_cdr: ConsCell;
-        r_car = Some(Rc::new(car.clone()));
-        match cdr {
-            &Sexp::List(ref elt) if elt.len() == 0 => r_cdr = None,
-            _ => r_cdr = Some(Rc::new(cdr.clone()))
-        }
-
-        Sexp::Pair(r_car, r_cdr)
-    }
-
-    /// Returns a string if the s-expression is a primitive value.
-    pub fn primitive_string(&self) -> Result<String, ErrorCode> {
-        match *self {
-            Keyword(ref s) | String(ref s) | Symbol(ref s) => Ok(s.to_owned()),
-            Number(ref n) => Ok(format!("{}", n)),
-            _ => Err(ErrorCode::InvalidAtom)
-        }
-    }
-
-    /// For a sexp coded by string, remove by that very string.
-    pub fn remove_key(&mut self, other: String) -> Result<Sexp, SexpError> {
-        match *self {
-            List(ref mut elts) => {
-                match elts.iter()
-                    .position(|x| x.car().unwrap().primitive_string().unwrap() == other) {
-                    Some(idx) => {
-                        let value = elts[idx].clone();
-                        elts.remove(idx);
-                        Ok(value.cdr().unwrap())
-                    },
-                    None => Err(NotFound)
-                }
-            }
-            _ => Err(InvalidType(ExpectingList))
-        }
-    }
-
-    pub fn remove(&mut self, other: Sexp) -> Result<Sexp, SexpError> {
-        match *self {
-            List(ref mut elts) => {
-                match elts.iter().position(|x| *x == other) {
-                    Some(idx) => {
-                        let value = elts[idx].clone();
-                        elts.remove(idx);
-                        Ok(value)
-                    },
-                    None => Err(NotFound)
-                }
-            }
-            _ => Err(InvalidType(ExpectingList))
-        }
-    }
-
-    /// Return a newly-created copy of lst with elements `PartialEq` to item
-    /// removed. This procedure mirrors `memq_index`: `delq` compares elements of lst
-    /// against item with eq?.
-    pub fn delq(&self, other: Sexp) -> Result<Sexp, SexpError> {
-        match *self {
-            List(ref elts) => {
-                // Build up a list of cloned elts, sans `other`
-                let lst = elts.iter()
-                    .filter(|x| **x != other)
-                    .map(|x| x.clone())
-                    .collect::<Vec<Sexp>>();
-
-                Ok(Sexp::List(lst))
-            }
-            _ => Err(InvalidType(ExpectingList))
-        }
-    }
-
-    /// Return the index `Sexp` of self who is `eq` with `other`. If x does not
-    /// occur in lst, then `SexpError::NotFound` is returned.
-    pub fn memq_index(&self, other: Sexp) -> Result<usize, SexpError> {
-        match *self {
-            List(ref elts) => {
-                // Build up a list of cloned elts, sans `other`
-                match elts.iter().position(|x| *x == other) {
-                    Some(idx) => Ok(idx),
-                    None => Err(NotFound)
-                }
-            },
-            _ => Err(InvalidType(ExpectingList))
-        }
-    }
-
-    /// Return the first `Sexp` of self who is `eq` with `other`.
-    /// If x does not occur in lst, then `SexpError::NotFound` is returned.
-    pub fn member<P>(&self, pred: P) -> Result<Sexp, SexpError> where
-        Self: Sized, P: FnMut(&&Self) -> bool,
-    {
-        match *self {
-            List(ref elts) => {
-                // Build up a list of cloned elts, sans `other`
-                match elts.iter().find(pred) {
-                    Some(elt) => Ok(elt.clone()),
-                    None => Err(NotFound)
-                }
-            },
-            _ => Err(InvalidType(ExpectingList))
-        }
-    }
-
-    /// Converts an alist structured S-expressions into a map.
+    /// Return a new Sexp::Pair with a symbol key
     ///
-    /// # Warning
-    /// This generates string keys, which means that keys that share the same
-    /// string representation will nessasarily be replaced, rather than
-    /// duplicated.
-    ///
-    /// # Example
-    ///
-    /// Simple alist structure
+    /// # Examples
     /// ```rust
-    /// let sexp = r#(
-    ///  (doctors  . ("Dr. Hargrove" "Dr. Steve" "Dr. Mischief" "Dr. Lizzie"))
-    ///  (teachers . ("Ms. Taya" "Mr. Smith" "Principle Weedle"))
-    ///  (sailors  . ("Ole Skippy" "Ravin' Dave" "Popeye")))#
-    /// let alist = Sexp::from_str(sexp);
-    /// let map = alist.into_map()
-    /// ```
-    ///
-    /// Non-pair structured key-value list into map
-    ///
-    /// ```rust
-    /// // Noticed that these are list, rather than pair structured S-expressions
+    /// # extern crate sexpr;
+    /// # fn main() {
     /// use sexpr::Sexp;
-    /// use std::str::FromStr;
-    /// let sexp = "(
-    ///  (\"New York\" \"Albany\")
-    ///  (\"Oregon\"   \"Salem\")
-    ///  (\"Florida\"  \"Miami\"))";
-    /// let alist = Sexp::from_str(sexp).unwrap().into_map();
+    /// let alist_1 = Sexp::new_entry("a", 1)
+    /// # }
     /// ```
-    pub fn into_map(self) -> Result<BTreeMap<String, ConsCell>, IntoAlistError> {
-        use error::IntoAlistError::*;
-        let mut map = BTreeMap::new();
-        match self {
-            List(ref items) => for elt in items {
-                match elt {
-                    &Sexp::Pair(ref car, ref cdr) => {
-                        match car {
-                            &Some(ref value) => {
-                                let key = format!("{}", *value);
-                                if key.is_empty() {
-                                    return Err(KeyValueMustBePair);
-                                } else {
-                                    if map.insert(key, cdr.clone()).is_some() {
-                                        return Err(DuplicateKey);
-                                    }
-                                }
-                            }
-                            _ => return Err(KeyValueMustBePair)
-                        }
-                    }
-                    _ => return Err(KeyValueMustBePair),
-                }
-            },
-            _ => return Err(ContainerSexpNotList)
-        }
-
-
-        Ok(map)
+    pub fn new_entry<S: ToString, I: Into<Sexp>> (key: S, value: I) -> Sexp {
+        Sexp::Pair(Some(Box::new(Sexp::Symbol(key.to_string()))),
+                   Some(Box::new(Sexp::from(value.into()))))
     }
 
-    pub fn symbol_from(sym: &str) -> Sexp {
-        Sexp::Symbol(String::from(sym))
+    /// Index into a Sexp alist or list. A string index can be used to access a
+    /// value in an alist, and a usize index can be used to access an element of an
+    /// list.
+    ///
+    /// Returns `None` if the type of `self` does not match the type of the
+    /// index, for example if the index is a string and `self` is an array or a
+    /// number. Also returns `None` if the given key does not exist in the map
+    /// or the given index is not within the bounds of the array.
+    ///
+    /// ```rust
+    /// # #[macro_use]
+    /// # extern crate sexpr;
+    /// #
+    /// # fn main() {
+    /// let object = sexp!(((A . 65) (B . 66) (C . 67)));
+    /// assert_eq!(*object.get("A").unwrap(), sexp!(65));
+    ///
+    /// let array = json!((A B C));
+    /// assert_eq!(*array.get(2).unwrap(), sexp!("C"));
+    ///
+    /// assert_eq!(array.get("A"), None);
+    /// # }
+    /// ```
+    ///
+    /// Square brackets can also be used to index into a value in a more concise
+    /// way. This returns `Value::Null` in cases where `get` would have returned
+    /// `None`.
+    ///
+    /// ```rust
+    /// # #[macro_use]
+    /// # extern crate sexpr;
+    /// #
+    /// # fn main() {
+    /// let object = sexp!((
+    ///     (A . ("a" "á" "à"))
+    ///     (B . ("b" "b́"))
+    ///     (C . ("c" "ć" "ć̣" "ḉ"))
+    /// ));
+    /// assert_eq!(object["B"][0], json!("b"));
+    ///
+    /// assert_eq!(object["D"], json!(null));
+    /// assert_eq!(object[0]["x"]["y"]["z"], json!(null));
+    /// # }
+    /// ```
+    pub fn get<I: Index>(&self, index: I) -> Option<&Sexp> {
+        unimplemented!()
     }
+
+    // fn search_alist<S: ToString>(&self, key: S) -> Option<Sexp>
+    // {
+    //     let key = key.to_string();
+    //     match *self {
+    //         Sexp::List(ref elts) => {
+    //             for elt in elts {
+    //                 match *elt {
+    //                     Sexp::Pair(Some(car), cdr) => {
+    //                         if (*car).to_string() == key {
+    //                             return cdr.and_then(|x| Some(*x));
+    //                         }
+    //                     }
+    //                     _ => return None
+    //                 }
+    //             }
+    //         }
+    //     }
 
 }
 
-#[cfg(test)]
-mod tests {
-    use ::Sexp;
-    use error::SexpError;
-    use std::str::FromStr;
+/// Convert a `T` into `sexpr::Sexp` which is an enum that can represent
+/// any valid S-expression data.
+///
+/// ```rust
+/// extern crate serde;
+///
+/// #[macro_use]
+/// extern crate serde_derive;
+///
+/// #[macro_use]
+/// extern crate sexpr;
+///
+/// use std::error::Error;
+///
+/// #[derive(Serialize)]
+/// struct User {
+///     fingerprint: String,
+///     location: String,
+/// }
+///
+/// fn compare_values() -> Result<(), Box<Error>> {
+///     let u = User {
+///         fingerprint: "0xF9BA143B95FF6D82".to_owned(),
+///         location: "Menlo Park, CA".to_owned(),
+///     };
+///
+///     // The type of `expected` is `sexpr::Sexp`
+///     let expected = sexp!({
+///                            "fingerprint": "0xF9BA143B95FF6D82",
+///                            "location": "Menlo Park, CA",
+///                          });
+///
+///     let v = sexpr::to_value(u).unwrap();
+///     assert_eq!(v, expected);
+///
+///     Ok(())
+/// }
+/// #
+/// # fn main() {
+/// #     compare_values().unwrap();
+/// # }
+/// ```
+///
+/// # Errors
+///
+/// This conversion can fail if `T`'s implementation of `Serialize` decides to
+/// fail, or if `T` contains a map with non-string keys.
+///
+/// ```rust
+/// extern crate sexpr;
+///
+/// use std::collections::BTreeMap;
+///
+/// fn main() {
+///     // The keys in this map are vectors, not strings.
+///     let mut map = BTreeMap::new();
+///     map.insert(vec![32, 64], "x86");
+///
+///     println!("{}", sexpr::to_value(map).unwrap_err());
+/// }
+/// ```
+#[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
+// Taking by value is more friendly to iterator adapters, option and result
+// consumers, etc.
+pub fn to_value<T>(value: T) -> Result<Sexp, Error>
+where
+    T: Serialize,
+{
+    value.serialize(Serializer)
+}
 
-    fn roundtrip(sexp: &str) -> String {
-        format!("{}", Sexp::from_str(sexp).unwrap())
-    }
-
-    fn assert_decoded(expected: &str, sexp: &str) {
-        assert_eq!(expected, roundtrip(sexp))
-    }
-
-    fn assert_roundtrip(sexp: &str) {
-        assert_eq!(sexp, roundtrip(sexp))
-    }
-
-    #[test]
-    fn test_sexp_parser_simple() { assert_roundtrip("(1 (2 (3 4 a (b) a)))") }
-
-    #[test]
-    fn test_escape_string() { assert_decoded("(a \"ab\"c\")", "(a \"ab\\\"c\")") }
-
-    #[test]
-    fn test_simple_pair() { assert_roundtrip("(a . b)") }
-
-    #[test]
-    fn test_long_pair() { assert_roundtrip("((a . b) (c . d) (e . 1))") }
-
-    #[test]
-    fn test_decode_hex_radix() { assert_decoded("(10 11 12)", "(#xa #xb #xc)") }
-
-    #[test]
-    fn test_skip_comment() {
-        assert_decoded(
-            "(a b c)",
-            "(; this is a comment
-              a
-              ;; another comment
-              b
-              ;;; third comment
-              c
-              ;;; final comment
-            )"
-        )
-    }
-
-    #[test]
-    fn test_square_brackets() { assert_decoded("(a (b c (d)))", "(a [b c (d)])") }
-
-    #[test]
-    #[should_panic]
-    fn test_square_bracket_balance() { assert_roundtrip("(a b (a [b c) d] e)") }
-
-
-    #[test]
-    fn test_remove_1() {
-        let lst = Sexp::from_str("(a b c d)").unwrap();
-        let lst_delq = Sexp::from_str("(b c d)").unwrap();
-        assert_eq!(
-            lst.delq(Sexp::Symbol(String::from("a"))).unwrap(),
-            lst_delq
-        )
-    }
-
-    #[test]
-    fn test_memq_index_1() {
-        let lst = Sexp::from_str("(a b c d)").unwrap();
-        assert_eq!(lst.memq_index(Sexp::Symbol(String::from("a"))).unwrap(), 0)
-    }
-
-    #[test]
-    fn test_memq_index_2() {
-        let lst = Sexp::from_str("(a b c d)").unwrap();
-        assert_eq!(lst.memq_index(Sexp::Symbol(String::from("x"))), Err(SexpError::NotFound))
-    }
-
-    #[test]
-    fn test_memq_index_3() {
-        let lst = Sexp::from_str("(a b c d)").unwrap();
-        assert_eq!(lst.memq_index(Sexp::Symbol(String::from("d"))).unwrap(), 3)
-    }
-
-    #[test]
-    fn test_member_1() {
-        let lst = Sexp::from_str("((variant kang) (fields a b c))").unwrap();
-        let mut res: Vec<Sexp> = vec![];
-        match lst.member(|sexp: &&Sexp| sexp.car().unwrap() == Sexp::symbol_from("variant")) {
-            Ok(Sexp::List(result)) => res = result,
-            _ => ()
-        }
-
-        assert_eq!(res[0], Sexp::symbol_from("variant"));
-        assert_eq!(res[1], Sexp::symbol_from("kang"));
-    }
+/// Interpret a `sexpr::Sexp` as an instance of type `T`.
+///
+/// This conversion can fail if the structure of the Sexp does not match the
+/// structure expected by `T`, for example if `T` is a struct type but the Sexp
+/// contains something other than a S-expression map. It can also fail if the structure
+/// is correct but `T`'s implementation of `Deserialize` decides that something
+/// is wrong with the data, for example required struct fields are missing from
+/// the S-expression map or some number is too big to fit in the expected primitive
+/// type.
+///
+/// ```rust
+/// #[macro_use]
+/// extern crate sexpr;
+///
+/// #[macro_use]
+/// extern crate serde_derive;
+///
+/// extern crate serde;
+///
+/// #[derive(Deserialize, Debug)]
+/// struct User {
+///     fingerprint: String,
+///     location: String,
+/// }
+///
+/// fn main() {
+///     // The type of `s` is `sexpr::Sexp`
+///     let s = sexp!({
+///                     "fingerprint": "0xF9BA143B95FF6D82",
+///                     "location": "Menlo Park, CA"
+///                   });
+///
+///     let u: User = sexpr::from_value(s).unwrap();
+///     println!("{:#?}", u);
+/// }
+/// ```
+pub fn from_value<T>(value: Sexp) -> Result<T, Error>
+where
+    T: DeserializeOwned,
+{
+    T::deserialize(value)
 }
