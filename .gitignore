@@ -1,2 +1,7 @@
 target
 Cargo.lock
+vendor/
+_site/
+
+# for personal testing
+src/main.rs
