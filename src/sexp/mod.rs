@@ -59,17 +59,18 @@
 
 //! println!("Colorado's Capital is: {}", decoded.get("Colorado"))
 //! ```
+use std::i64;
+use std::str;
 use std::collections::BTreeMap;
 use std::rc::Rc;
-use std::string::String;
 
-use error::{ErrorCode, IntoAlistError, SexpError};
-use error::SexpError::*;
-use error::InvalidType::*;
+use serde::ser::Serialize;
+use serde::de::DeserializeOwned;
 
+use error::Error;
 pub use number::Number;
 
-mod display;
+use self::ser::Serializer;
 
 // Rather than having a specialized 'nil' atom, we save space by letting `None`
 // here indicates 'nil'
