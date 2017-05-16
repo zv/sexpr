@@ -1,8 +1,7 @@
+use std::rc::Rc;
 use serde::{self, Serialize};
-
 use error::{Error, ErrorCode};
-use map::Map;
-
+use number::Number;
 use sexp::{Sexp, to_value};
 
 impl Serialize for Sexp {
@@ -13,9 +12,7 @@ impl Serialize for Sexp {
         match *self {
             // Sexp::Null => serializer.serialize_unit(),
             Sexp::Boolean(b) => serializer.serialize_bool(b),
-            Sexp::U64(num) => num.serialize(serializer),
-            Sexp::I64(num) => num.serialize(serializer),
-            Sexp::F64(num) => num.serialize(serializer),
+            Sexp::Number(ref n) => n.serialize(serializer),
             Sexp::Symbol(ref sym) => serializer.serialize_str(sym),
             Sexp::Keyword(ref sym) => serializer.serialize_str(sym),
             Sexp::String(ref s) => serializer.serialize_str(s),
@@ -40,6 +37,7 @@ impl serde::Serializer for Serializer {
     type SerializeTuple = SerializeVec;
     type SerializeTupleStruct = SerializeVec;
     type SerializeTupleVariant = SerializeTupleVariant;
+    // XXX TODO
     type SerializeMap = SerializeMap;
     type SerializeStruct = SerializeMap;
     type SerializeStructVariant = SerializeStructVariant;
@@ -95,7 +93,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_f64(self, value: f64) -> Result<Sexp, Error> {
-        Ok(Number::from_f64(value).map_or(List([]), Sexp::F64))
+        Ok(Number::from_f64(value).map_or(Sexp::List([]), Sexp::F64))
     }
 
     #[inline]
@@ -157,9 +155,7 @@ impl serde::Serializer for Serializer {
         where
         T: Serialize,
     {
-        let mut values = Map::new();
-        values.insert(String::from(variant), try!(to_value(&value)));
-        Ok(Sexp::Object(values))
+        unimplemented!()
     }
 
     #[inline]
@@ -207,12 +203,7 @@ impl serde::Serializer for Serializer {
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Error> {
-        Ok(
-            SerializeMap {
-                map: Map::new(),
-                next_key: None,
-            },
-        )
+        unimplemented!()
     }
 
     fn serialize_struct(
@@ -230,12 +221,7 @@ impl serde::Serializer for Serializer {
         variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant, Error> {
-        Ok(
-            SerializeStructVariant {
-                name: String::from(variant),
-                map: Map::new(),
-            },
-        )
+        unimplemented!()
     }
 }
 
@@ -248,18 +234,6 @@ pub struct SerializeVec {
 pub struct SerializeTupleVariant {
     name: String,
     vec: Vec<Sexp>,
-}
-
-#[doc(hidden)]
-pub struct SerializeMap {
-    map: Map<String, Sexp>,
-    next_key: Option<String>,
-}
-
-#[doc(hidden)]
-pub struct SerializeStructVariant {
-    name: String,
-    map: Map<String, Sexp>,
 }
 
 impl serde::ser::SerializeSeq for SerializeVec {
@@ -324,10 +298,13 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
     }
 
     fn end(self) -> Result<Sexp, Error> {
-        let mut object = Map::new();
-        object.insert(self.name, Sexp::Array(self.vec));
-        Ok(Sexp::Object(object))
+        unimplemented!()
     }
+}
+
+#[doc(hidden)]
+pub struct SerializeMap {
+    next_key: Option<String>,
 }
 
 impl serde::ser::SerializeMap for SerializeMap {
@@ -335,10 +312,11 @@ impl serde::ser::SerializeMap for SerializeMap {
     type Error = Error;
 
     fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<(), Error>
-        where
+    where
         T: Serialize,
     {
         match try!(to_value(&key)) {
+            Sexp::Atom(s) => self.next_key = Some(s),
             Sexp::String(s) => self.next_key = Some(s),
             Sexp::Number(n) => {
                 if n.is_u64() || n.is_i64() {
@@ -353,7 +331,7 @@ impl serde::ser::SerializeMap for SerializeMap {
     }
 
     fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Error>
-        where
+    where
         T: Serialize,
     {
         let key = self.next_key.take();
@@ -386,6 +364,12 @@ impl serde::ser::SerializeStruct for SerializeMap {
     }
 }
 
+#[doc(hidden)]
+pub struct SerializeStructVariant {
+    name: String,
+    values: Vec<Sexp>,
+}
+
 impl serde::ser::SerializeStructVariant for SerializeStructVariant {
     type Ok = Sexp;
     type Error = Error;
@@ -394,16 +378,13 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
         where
         T: Serialize,
     {
-        self.map
-            .insert(String::from(key), try!(to_value(&value)));
+        self.values.push(
+            Sexp::Pair(Some(Rc::new(String::from(key))), to_value(&value).ok().map(|v| Rc::new(v)))
+        );
         Ok(())
     }
 
     fn end(self) -> Result<Sexp, Error> {
-        let mut object = Map::new();
-
-        object.insert(self.name, Sexp::Object(self.map));
-
-        Ok(Sexp::Object(object))
+        Ok(Sexp::Pair(Ok(self.name), Ok(self.values)))
     }
 }

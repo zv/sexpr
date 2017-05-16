@@ -60,19 +60,25 @@
 //! println!("Colorado's Capital is: {}", decoded.get("Colorado"))
 //! ```
 #![feature(box_patterns)]
-extern crate rustc_serialize;
+
+extern crate core;
+#[macro_use]
 extern crate serde;
 
 #[doc(inline)]
-
-pub mod config;
-
-pub mod error;
-
-mod parse;
-
-pub mod sexp;
+pub use self::de::{Deserializer, StreamDeserializer, from_reader, from_slice, from_str};
+#[doc(inline)]
+pub use self::error::{Error, Result};
+#[doc(inline)]
+pub use ser::{to_string, Serializer};
 #[doc(inline)]
 pub use self::sexp::{Sexp, Number};
 
+pub mod de;
+pub mod error;
+pub mod ser;
+pub mod sexp;
+
+mod iter;
 mod number;
+mod read;
