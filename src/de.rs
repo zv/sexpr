@@ -214,27 +214,13 @@ impl<'de, R: Read<'de>> Deserializer<R> {
 
                 self.remaining_depth += 1;
 
+                try!(self.parse_whitespace());
+
                 match (ret, self.end_seq()) {
                     (Ok(ret), Ok(())) => Ok(ret),
                     (Err(err), _) | (_, Err(err)) => Err(err),
                 }
             }
-            // b'{' => {
-            //     self.remaining_depth -= 1;
-            //     if self.remaining_depth == 0 {
-            //         return Err(self.peek_error(ErrorCode::RecursionLimitExceeded));
-            //     }
-
-            //     self.eat_char();
-            //     let ret = visitor.visit_map(MapAccess::new(self));
-
-            //     self.remaining_depth += 1;
-
-            //     match (ret, self.end_map()) {
-            //         (Ok(ret), Ok(())) => Ok(ret),
-            //         (Err(err), _) | (_, Err(err)) => Err(err),
-            //     }
-            // }
             _ => Err(self.peek_error(ErrorCode::ExpectedSomeValue)),
         };
 
@@ -605,10 +591,11 @@ impl<'de, 'a, R: Read<'de> + 'a> de::SeqAccess<'de> for SeqAccess<'a, R> {
             Some(b')') => {
                 return Ok(None);
             },
-            Some(b' ') if !self.first => {
+            Some(b' ') => {
                 self.de.eat_char();
-            },
+            }
             Some(_) => {
+                try!(self.de.parse_whitespace());
                 if self.first {
                     self.first = false;
                 } else {
@@ -620,8 +607,11 @@ impl<'de, 'a, R: Read<'de> + 'a> de::SeqAccess<'de> for SeqAccess<'a, R> {
             }
         }
 
-        let value = try!(seed.deserialize(&mut *self.de));
-        Ok(Some(value))
+        if try!(self.de.peek()).unwrap() == b')' {
+            Ok(None)
+        } else {
+            seed.deserialize(&mut *self.de).map(Some)
+        }
     }
 }
 
