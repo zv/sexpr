@@ -59,8 +59,6 @@
 
 //! println!("Colorado's Capital is: {}", decoded.get("Colorado"))
 //! ```
-#![feature(box_patterns)]
-
 extern crate num_traits;
 // extern crate core;
 #[macro_use]
@@ -76,6 +74,9 @@ pub use self::error::{Error, Result};
 pub use ser::{to_string, Serializer};
 #[doc(inline)]
 pub use self::sexp::{Sexp, Number, from_value, to_value};
+
+#[macro_use]
+mod macros;
 
 pub mod de;
 pub mod error;
