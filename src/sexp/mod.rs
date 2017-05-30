@@ -5,61 +5,73 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! S-expression parsing and serialization
+//! The Sexp enum, a loosely typed way of representing any valid S-expression value.
 //!
-//! # What are S-expressions?
-//! # What are S-Expressions?
+//! # Constructing S-expression
 //!
-//! S-expressions are data structures for representing complex data.  They
-//! are either byte-strings ("octet-strings") or lists of simpler
-//! S-expressions.  Here is a sample S-expression:
+//! Serde S-expression provides a [`sexp!` macro][macro] to build `sexpr::Sexp`
+//! objects with very natural S-expression syntax. In order to use this macro,
+//! `sexpr` needs to be imported with the `#[macro_use]` attribute.
 //!
-//! Data types that can be encoded are varied, and can be expressed in multiple
-//! different ways, depending on the parser's configuration.
+//! ```rust
+//! #[macro_use]
+//! extern crate sexpr;
 //!
-//! * `Symbol`: An identifier
-//! * `I64`: equivalent to rust's `i64`
-//! * `U64`: equivalent to rust's `u64`
-//! * `F64`: equivalent to rust's `f64`
-//! * `Boolean`: equivalent to rust's `bool`
-//! * `String`: equivalent to rust's `String`
-//! * `Cons`: A structure with two pointers 'car' and 'cdr'
-//! * `Nil`: A special object, indicating an end of list or the lack of value.
+//! fn main() {
+//!     // The type of `john` is `sexpr::Sexp`
+//!     let john = sexp!((
+//!       ("name" . "John Doe")
+//!       ("age" . 43)
+//!       ("phones" . (
+//!         ("+44 1234567")
+//!         ("+44 2345678")
+//!       ))
+//!     ));
 //!
-//! Composite structures are made through combination of these components
+//!     println!("first phone number: {}", john["phones"][0]);
 //!
-//! # Simple Lists
-//! ```ignore
-//! (computer clock calendar)
+//!     // Convert to a string of S-expression and print it out
+//!     println!("{}", john.to_string());
+//! }
 //! ```
 //!
-//! ## Associated Lists
+//! The `Sexp::to_string()` function converts a `sexpr::Value` into a `String` of
+//! S-expression text. A string of S-expression data can be parsed into a
+//! `sexpr::Sexp` by the [`sexpr::from_str`][from_str] function. There is also
+//! [`from_slice`][from_slice] for parsing from a byte slice &[u8] and
+//! [`from_reader`][from_reader] for parsing from any `io::Read` like a File or a
+//! TCP stream.
 //!
-//! ```ignore
-//! (doctors  . ("Dr. Hargrove" "Dr. Steve" "Dr. Mischief" "Dr. Lizzie")
-//!  teachers . ("Ms. Taya" "Mr. Smith" "Principle Weedle")
-//!  sailors  . ("Ole Skippy" "Ravin' Dave" "Popeye"))
+//! ```rust
+//! extern crate sexpr;
+//!
+//! use sexpr::{Sexp, Error};
+//!
+//! fn untyped_example() -> Result<(), Error> {
+//!     // Some S-expression input data as a &str. Maybe this comes from the user.
+//!     let data = r#"(
+//!       ("name" . "John Doe")
+//!       ("age" . 43)
+//!       ("phones" . (
+//!         ("+44 1234567")
+//!         ("+44 2345678")
+//!       ))
+//!     )"#;
+//!
+//!     // Parse the string of data into sexpr::Sexp.
+//!     let v: Sexp = sexpr::from_str(data)?;
+//!
+//!     // Access parts of the data by indexing with square brackets.
+//!     println!("Please call {} at the number {}", v["name"], v["phones"][0]);
+//!
+//!     Ok(())
+//! }
+//! #
+//! # fn main() {
+//! #     untyped_example().unwrap();
+//! # }
 //! ```
 //!
-//! # Examples of use
-//!
-//! ```ignore
-//! use std::collections::BTreeMap;
-//!
-//! let values = "((New York . Albany)
-//!                (Oregon   . Salem)
-//!                (Florida  . Miami)
-//!                (California . Sacramento)
-//!                (Colorado . Denver))";
-//!
-//! let sexp = Sexp::from_str(values);
-//!
-//! // Deserialize using 'sexpattern::decode'
-//! let decoded: BTreeMap = sexpattern::decode(&sexp).unwrap();
-//!
-
-//! println!("Colorado's Capital is: {}", decoded.get("Colorado"))
-//! ```
 use std::fmt::Display;
 use std::i64;
 use std::str;
@@ -83,23 +95,108 @@ use self::ser::Serializer;
 type SexpPtr = Box<Sexp>;
 type ConsCell = Option<SexpPtr>;
 
-/// An s-expression is either an atom or a list of s-expressions. This is
-/// similar to the data format used by lisp.
+/// Represents any valid S-expression value.
+///
+/// See the `sexpr::sexp` module documentation for usage examples.
 #[derive(PartialEq, Clone, Debug)]
 pub enum Sexp {
-    /// A special nil symbol
+    /// Represents a S-expression nil value.
+    ///
+    /// ```rust
+    /// # #[macro_use]
+    /// # extern crate sexpr;
+    /// #
+    /// # fn main() {
+    /// let v = sexpr!(#nil);
+    /// # }
+    /// ```
     Nil,
-    /// A symbol or alist key
+
+    /// Represents a S-expression symbol.
+    ///
+    /// ```rust
+    /// # #[macro_use]
+    /// # extern crate sexpr;
+    /// #
+    /// # fn main() {
+    /// let v = sexp!(symbolic);
+    /// # }
+    /// ```
     Symbol(String),
-    /// A UTF-8 String
+
+    /// Represents a S-expression string.
+    ///
+    /// ```rust
+    /// # #[macro_use]
+    /// # extern crate sexpr;
+    /// #
+    /// # fn main() {
+    /// let v = sexp!("a string");
+    /// # }
+    /// ```
     String(String),
-    /// A keyword consists of a `:` (colon) followed by valid symbol characters.
+
+    /// Represents a S-expression keyword.
+    ///
+    /// ```rust
+    /// # #[macro_use]
+    /// # extern crate sexpr;
+    /// #
+    /// # fn main() {
+    /// let v = sexp!(:keyword);
+    /// # }
+    /// ```
     Keyword(String),
-    /// Represents a Sexp number
+
+    /// Represents a S-expression number, whether integer or floating point.
+    ///
+    /// ```rust
+    /// # #[macro_use]
+    /// # extern crate sexpr;
+    /// #
+    /// # fn main() {
+    /// let v = sexp!(12.5);
+    /// # }
+    /// ```
     Number(Number),
+
+    /// Represents a S-expression boolean.
+    ///
+    /// ```rust
+    /// # #[macro_use]
+    /// # extern crate sexpr;
+    /// #
+    /// # fn main() {
+    /// let v = sexp!(#t);
+    /// # }
+    /// ```
     Boolean(bool),
-    /// A classic 'cons cell' structure whose elts are themselves cons-cells.
+
+    /// Represents a S-expression cons-pair.
+    ///
+    /// ```rust
+    /// # #[macro_use]
+    /// # extern crate sexpr;
+    /// #
+    /// # fn main() {
+    /// let v = sexp!((a . 1));
+    /// # }
+    /// ```
     Pair(ConsCell, ConsCell),
+
+    /// Represents a S-expression list.
+    ///
+    /// This enum type is 'multi-function' at this point, possibly representing either
+    /// a list of items or an associative list.
+    ///
+    /// ```rust
+    /// # #[macro_use]
+    /// # extern crate sexpr;
+    /// #
+    /// # fn main() {
+    /// let v = sexp!((a b c));
+    /// # }
+    /// ```
     List(Vec<Sexp>),
 }
 
@@ -139,7 +236,7 @@ impl Sexp {
     /// let object = sexp!(((A . 65) (B . 66) (C . 67)));
     /// assert_eq!(*object.get("A").unwrap(), sexp!(65));
     ///
-    /// let array = json!((A B C));
+    /// let array = sexp!((A B C));
     /// assert_eq!(*array.get(2).unwrap(), sexp!("C"));
     ///
     /// assert_eq!(array.get("A"), None);
@@ -160,10 +257,10 @@ impl Sexp {
     ///     (B . ("b" "b́"))
     ///     (C . ("c" "ć" "ć̣" "ḉ"))
     /// ));
-    /// assert_eq!(object["B"][0], json!("b"));
+    /// assert_eq!(object["B"][0], sexp!("b"));
     ///
-    /// assert_eq!(object["D"], json!(null));
-    /// assert_eq!(object[0]["x"]["y"]["z"], json!(null));
+    /// assert_eq!(object["D"], sexp!(null));
+    /// assert_eq!(object[0]["x"]["y"]["z"], sexp!(null));
     /// # }
     /// ```
     pub fn get<I: Index>(&self, index: I) -> Option<&Sexp> {
@@ -303,4 +400,3 @@ where
 {
     T::deserialize(value)
 }
-
