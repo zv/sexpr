@@ -601,17 +601,20 @@ impl<'de, 'a, R: Read<'de> + 'a> de::SeqAccess<'de> for SeqAccess<'a, R> {
         where
         T: de::DeserializeSeed<'de>,
     {
-        match try!(self.de.parse_whitespace()) {
+        match try!(self.de.peek()) {
             Some(b')') => {
                 return Ok(None);
-            }
+            },
+            Some(b' ') if !self.first => {
+                self.de.eat_char();
+            },
             Some(_) => {
                 if self.first {
                     self.first = false;
                 } else {
                     return Err(self.de.peek_error(ErrorCode::ExpectedListCommaOrEnd));
                 }
-            }
+            },
             None => {
                 return Err(self.de.peek_error(ErrorCode::EofWhileParsingList));
             }

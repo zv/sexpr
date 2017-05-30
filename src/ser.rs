@@ -1368,7 +1368,7 @@ pub trait Formatter {
     where
         W: io::Write,
     {
-        writer.write_all(b"[")
+        writer.write_all(b"(")
     }
 
     /// Called after every array.  Writes a `]` to the specified
@@ -1378,7 +1378,7 @@ pub trait Formatter {
     where
         W: io::Write,
     {
-        writer.write_all(b"]")
+        writer.write_all(b")")
     }
 
     /// Called before every array value.  Writes a `,` if needed to
@@ -1391,7 +1391,7 @@ pub trait Formatter {
         if first {
             Ok(())
         } else {
-            writer.write_all(b",")
+            writer.write_all(b" ")
         }
     }
 
@@ -1513,7 +1513,7 @@ impl<'a> Formatter for PrettyFormatter<'a> {
     {
         self.current_indent += 1;
         self.has_value = false;
-        writer.write_all(b"[")
+        writer.write_all(b"(")
     }
 
     #[inline]
@@ -1528,7 +1528,7 @@ impl<'a> Formatter for PrettyFormatter<'a> {
             try!(indent(writer, self.current_indent, self.indent));
         }
 
-        writer.write_all(b"]")
+        writer.write_all(b")")
     }
 
     #[inline]
