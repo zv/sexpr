@@ -248,4 +248,5 @@ pub mod sexp;
 
 mod iter;
 mod number;
+mod atom;
 mod read;
