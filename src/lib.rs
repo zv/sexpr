@@ -11,7 +11,7 @@
 //! S-expressions are a lightweight format for representating and transmitting data
 //! consisting of parenthesis pairs.
 //!
-//! ```
+//! ```scheme
 //! (package
 //!  (name "sexpr")
 //!  (version "0.7.0")
@@ -24,9 +24,11 @@
 //!  (readme "README.org")
 //!  (documentation  "https://zv.github.io/rust/sexpr"))
 //! ```
+//!
 //! Sexpr also supports more complex types; including keywords with configurable
 //! tokens for `true`, `false` and `nil`.
-//! ```
+//!
+//! ```scheme
 //! (define-class rectangle ()
 //!  (width
 //!    #:init-value #nil ;; Nil value
@@ -59,7 +61,7 @@
 //! Any valid s-exp can be manipulated in the following recursive enum
 //! representation. This data structure is [`sexpr::Sexp`][sexp].
 //!
-//!  ```rust
+//! ```rust
 //!  # use sexpr::{Number, Map};
 //!  #
 //!  # #[allow(dead_code)]
@@ -81,7 +83,7 @@
 //! [`from_reader`][from_reader] for parsing from any `io::Read` like a File or
 //! a TCP stream.
 //!
-//!  ```rust
+//! ```rust
 //!  extern crate sexpr;
 //!
 //!  use sexpr::{Sexp, Error};
@@ -108,7 +110,7 @@
 //!  # fn main() {
 //!  #     untyped_example().unwrap();
 //!  # }
-//!  ```
+//! ```
 //!
 //!
 //! # Parsing S-expressions as strongly typed data structures
