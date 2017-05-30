@@ -61,14 +61,14 @@ impl Index for usize {
 impl Index for str {
     fn index_into<'v>(&self, v: &'v Sexp) -> Option<&'v Sexp> {
         match v {
-            &Sexp::List(ref elts) => v.get(self),
+            &Sexp::List(_) => v.get(self),
             _ => None,
         }
     }
-    fn index_into_mut<'v>(&self, v: &'v mut Sexp) -> Option<&'v mut Sexp> {
+    fn index_into_mut<'v>(&self, _v: &'v mut Sexp) -> Option<&'v mut Sexp> {
         unimplemented!()
     }
-    fn index_or_insert<'v>(&self, v: &'v mut Sexp) -> &'v mut Sexp {
+    fn index_or_insert<'v>(&self, _v: &'v mut Sexp) -> &'v mut Sexp {
         unimplemented!()
     }
 }
@@ -174,17 +174,13 @@ where
     /// # extern crate sexpr;
     /// #
     /// # fn main() {
-    /// let data = sexp!({
-    ///     "x": {
-    ///         "y": ["z", "zz"]
-    ///     }
-    /// });
+    /// let data = sexpr::from_str("(x . (y . (z zz)))")
     ///
-    /// assert_eq!(data["x"]["y"], sexp!(["z", "zz"]));
-    /// assert_eq!(data["x"]["y"][0], sexp!("z"));
+    /// assert_eq!(data["x"]["y"], sexpr::from_str("(z zz)"));
+    /// assert_eq!(data["x"]["y"][0], sexpr::from_str("z"));
     ///
-    /// assert_eq!(data["a"], sexp!(null)); // returns null for undefined values
-    /// assert_eq!(data["a"]["b"], sexp!(null)); // does not panic
+    /// assert_eq!(data["a"], Sexp::Nil); // returns null for undefined values
+    /// assert_eq!(data["a"]["b"], Sexp::Nil); // does not panic
     /// # }
     /// ```
     fn index(&self, index: I) -> &Sexp {
@@ -216,19 +212,19 @@ where
     /// # extern crate sexpr;
     /// #
     /// # fn main() {
-    /// let mut data = sexp!({ "x": 0 });
+    /// let mut data = sexp!((x . 0));
     ///
     /// // replace an existing key
     /// data["x"] = sexp!(1);
     ///
     /// // insert a new key
-    /// data["y"] = sexp!([false, false, false]);
+    /// data["y"] = sexp!((#f #f #f));
     ///
     /// // replace an array value
-    /// data["y"][0] = sexp!(true);
+    /// data["y"][0] = sexp!(#f);
     ///
     /// // inserted a deeply nested key
-    /// data["a"]["b"]["c"]["d"] = sexp!(true);
+    /// data["a"]["b"]["c"]["d"] = sexp!(#t);
     ///
     /// println!("{}", data);
     /// # }

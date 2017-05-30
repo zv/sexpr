@@ -216,10 +216,10 @@ impl Sexp {
 ///     };
 ///
 ///     // The type of `expected` is `sexpr::Sexp`
-///     let expected = sexp!({
-///                            "fingerprint": "0xF9BA143B95FF6D82",
-///                            "location": "Menlo Park, CA",
-///                          });
+///     let expected = sexp!((
+///                            (fingerprint . "0xF9BA143B95FF6D82")
+///                            (location . "Menlo Park, CA")
+///                          ));
 ///
 ///     let v = sexpr::to_value(u).unwrap();
 ///     assert_eq!(v, expected);
@@ -287,10 +287,10 @@ where
 ///
 /// fn main() {
 ///     // The type of `s` is `sexpr::Sexp`
-///     let s = sexp!({
-///                     "fingerprint": "0xF9BA143B95FF6D82",
-///                     "location": "Menlo Park, CA"
-///                   });
+///     let s = sexp!((
+///                     (fingerprint . "0xF9BA143B95FF6D82")
+///                     (location . "Menlo Park, CA")
+///                   ));
 ///
 ///     let u: User = sexpr::from_value(s).unwrap();
 ///     println!("{:#?}", u);
