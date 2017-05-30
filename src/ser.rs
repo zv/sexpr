@@ -1,3 +1,13 @@
+// Copyright 2017 Zephyr Pellerin
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+//! Serialize a Rust data structure into S-expression data.
+
 use std::fmt;
 use std::io;
 use std::num::FpCategory;
@@ -9,7 +19,7 @@ use super::error::{Error, ErrorCode, Result};
 use itoa;
 use dtoa;
 
-/// A structure for serializing Rust values into JSON.
+/// A structure for serializing Rust values into S-expression.
 pub struct Serializer<W, F = CompactFormatter> {
     writer: W,
     formatter: F,
@@ -19,7 +29,7 @@ impl<W> Serializer<W>
 where
     W: io::Write,
 {
-    /// Creates a new JSON serializer.
+    /// Creates a new S-expression serializer.
     #[inline]
     pub fn new(writer: W) -> Self {
         Serializer::with_formatter(writer, CompactFormatter)
@@ -30,7 +40,7 @@ impl<'a, W> Serializer<W, PrettyFormatter<'a>>
 where
     W: io::Write,
 {
-    /// Creates a new JSON pretty print serializer.
+    /// Creates a new S-expression pretty print serializer.
     #[inline]
     pub fn pretty(writer: W) -> Self {
         Serializer::with_formatter(writer, PrettyFormatter::new())
@@ -42,7 +52,7 @@ where
     W: io::Write,
     F: Formatter,
 {
-    /// Creates a new JSON visitor whose output will be written to the writer
+    /// Creates a new S-expression visitor whose output will be written to the writer
     /// specified.
     #[inline]
     pub fn with_formatter(writer: W, formatter: F) -> Self {
@@ -1177,8 +1187,8 @@ impl CharEscape {
     }
 }
 
-/// This trait abstracts away serializing the JSON control characters, which allows the user to
-/// optionally pretty print the JSON output.
+/// This trait abstracts away serializing the S-expression control characters, which allows the user to
+/// optionally pretty print the S-expression output.
 pub trait Formatter {
     /// Writes a `null` value to the specified writer.
     #[inline]
@@ -1361,7 +1371,7 @@ pub trait Formatter {
         writer.write_all(s)
     }
 
-    /// Called before every array.  Writes a `[` to the specified
+    /// Called before every array.  Writes a `(` to the specified
     /// writer.
     #[inline]
     fn begin_array<W: ?Sized>(&mut self, writer: &mut W) -> io::Result<()>
@@ -1371,7 +1381,7 @@ pub trait Formatter {
         writer.write_all(b"(")
     }
 
-    /// Called after every array.  Writes a `]` to the specified
+    /// Called after every array.  Writes a `)` to the specified
     /// writer.
     #[inline]
     fn end_array<W: ?Sized>(&mut self, writer: &mut W) -> io::Result<()>
@@ -1381,7 +1391,7 @@ pub trait Formatter {
         writer.write_all(b")")
     }
 
-    /// Called before every array value.  Writes a `,` if needed to
+    /// Called before every array value.  Writes a space if needed to
     /// the specified writer.
     #[inline]
     fn begin_array_value<W: ?Sized>(&mut self, writer: &mut W, first: bool) -> io::Result<()>
@@ -1404,24 +1414,24 @@ pub trait Formatter {
         Ok(())
     }
 
-    /// Called before every object.  Writes a `{` to the specified
+    /// Called before every object.  Writes a `(` to the specified
     /// writer.
     #[inline]
     fn begin_object<W: ?Sized>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: io::Write,
     {
-        writer.write_all(b"{")
+        writer.write_all(b"(")
     }
 
-    /// Called after every object.  Writes a `}` to the specified
+    /// Called after every object.  Writes a `)` to the specified
     /// writer.
     #[inline]
     fn end_object<W: ?Sized>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: io::Write,
     {
-        writer.write_all(b"}")
+        writer.write_all(b")")
     }
 
     /// Called before every object key.
@@ -1433,11 +1443,11 @@ pub trait Formatter {
         if first {
             Ok(())
         } else {
-            writer.write_all(b",")
+            writer.write_all(b" ")
         }
     }
 
-    /// Called after every object key.  A `:` should be written to the
+    /// Called after every object key.  A `.` should be written to the
     /// specified writer by either this method or
     /// `begin_object_value`.
     #[inline]
@@ -1448,7 +1458,7 @@ pub trait Formatter {
         Ok(())
     }
 
-    /// Called before every object value.  A `:` should be written to
+    /// Called before every object value.  A `.` should be written to
     /// the specified writer by either this method or
     /// `end_object_key`.
     #[inline]
@@ -1456,7 +1466,7 @@ pub trait Formatter {
     where
         W: io::Write,
     {
-        writer.write_all(b":")
+        writer.write_all(b".")
     }
 
     /// Called after every object value.
@@ -1469,13 +1479,13 @@ pub trait Formatter {
     }
 }
 
-/// This structure compacts a JSON value with no extra whitespace.
+/// This structure compacts a S-expression value with no extra whitespace.
 #[derive(Clone, Debug)]
 pub struct CompactFormatter;
 
 impl Formatter for CompactFormatter {}
 
-/// This structure pretty prints a JSON value to make it human readable.
+/// This structure pretty prints a S-expression value to make it human readable.
 #[derive(Clone, Debug)]
 pub struct PrettyFormatter<'a> {
     current_indent: usize,
@@ -1532,15 +1542,11 @@ impl<'a> Formatter for PrettyFormatter<'a> {
     }
 
     #[inline]
-    fn begin_array_value<W: ?Sized>(&mut self, writer: &mut W, first: bool) -> io::Result<()>
+    fn begin_array_value<W: ?Sized>(&mut self, writer: &mut W, _first: bool) -> io::Result<()>
     where
         W: io::Write,
     {
-        if first {
-            try!(writer.write_all(b"\n"));
-        } else {
-            try!(writer.write_all(b",\n"));
-        }
+        try!(writer.write_all(b"\n"));
         try!(indent(writer, self.current_indent, self.indent));
         Ok(())
     }
@@ -1671,7 +1677,7 @@ const BS: u8 = b'\\'; // \x5C
 const U: u8 = b'u'; // \x00...\x1F except the ones above
 
 // Lookup table of escape sequences. A value of b'x' at index i means that byte
-// i is escaped as "\x" in JSON. A value of 0 means that byte i is not escaped.
+// i is escaped as "\x" in S-expression. A value of 0 means that byte i is not escaped.
 #[cfg_attr(rustfmt, rustfmt_skip)]
 static ESCAPE: [u8; 256] = [
     //  1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
@@ -1715,7 +1721,7 @@ where
     format_escaped_str(wr, formatter, slice)
 }
 
-/// Serialize the given data structure as JSON into the IO stream.
+/// Serialize the given data structure as S-expression into the IO stream.
 ///
 /// # Errors
 ///
@@ -1732,7 +1738,7 @@ where
     Ok(())
 }
 
-/// Serialize the given data structure as pretty-printed JSON into the IO
+/// Serialize the given data structure as pretty-printed S-expression into the IO
 /// stream.
 ///
 /// # Errors
@@ -1750,7 +1756,7 @@ where
     Ok(())
 }
 
-/// Serialize the given data structure as a JSON byte vector.
+/// Serialize the given data structure as a S-expression byte vector.
 ///
 /// # Errors
 ///
@@ -1766,7 +1772,7 @@ where
     Ok(writer)
 }
 
-/// Serialize the given data structure as a pretty-printed JSON byte vector.
+/// Serialize the given data structure as a pretty-printed S-expression byte vector.
 ///
 /// # Errors
 ///
@@ -1782,7 +1788,7 @@ where
     Ok(writer)
 }
 
-/// Serialize the given data structure as a String of JSON.
+/// Serialize the given data structure as a String of S-expression.
 ///
 /// # Errors
 ///
@@ -1801,7 +1807,7 @@ where
     Ok(string)
 }
 
-/// Serialize the given data structure as a pretty-printed String of JSON.
+/// Serialize the given data structure as a pretty-printed String of S-expression.
 ///
 /// # Errors
 ///

@@ -1,4 +1,11 @@
-use std::rc::Rc;
+// Copyright 2017 Zephyr Pellerin
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
 use serde::{self, Serialize};
 use error::{Error, ErrorCode};
 use number::Number;
@@ -18,12 +25,12 @@ impl Serialize for Sexp {
             Sexp::Keyword(ref sym) => serializer.serialize_str(sym),
             Sexp::String(ref s) => serializer.serialize_str(s),
             Sexp::List(ref v) => v.serialize(serializer),
-            Sexp::Pair(Some(ref car), Some(ref cdr)) => {
+            Sexp::Pair(_, _) => {
                 unimplemented!()
             },
-            Sexp::Pair(Some(ref car), None) => unimplemented!(),
-            Sexp::Pair(None, Some(ref cdr)) => unimplemented!(),
-            Sexp::Pair(None, None)  => unimplemented!(),
+            // Sexp::Pair(Some(_), None) => unimplemented!(),
+            // Sexp::Pair(None, Some(_)) => unimplemented!(),
+            // Sexp::Pair(None, None)  => unimplemented!(),
         }
     }
 }
@@ -150,8 +157,8 @@ impl serde::Serializer for Serializer {
         self,
         _name: &'static str,
         _variant_index: u32,
-        variant: &'static str,
-        value: &T,
+        _variant: &'static str,
+        _value: &T,
     ) -> Result<Sexp, Error>
         where
         T: Serialize,
@@ -219,7 +226,7 @@ impl serde::Serializer for Serializer {
         self,
         _name: &'static str,
         _variant_index: u32,
-        variant: &'static str,
+        _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant, Error> {
         unimplemented!()

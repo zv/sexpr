@@ -1,4 +1,4 @@
-// Copyright 2017 Serde Developers
+// Copyright 2017 Zephyr Pellerin
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -44,7 +44,7 @@ impl<'de> Deserialize<'de> for Sexp {
             type Value = Sexp;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("any valid JSON value")
+                formatter.write_str("any valid Sexp value")
             }
 
             #[inline]

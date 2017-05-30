@@ -1,4 +1,4 @@
-
+// Copyright 2017 Zephyr Pellerin
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -6,7 +6,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! When serializing or deserializing JSON goes wrong.
+//! When serializing or deserializing S-expression goes wrong.
 
 use std::error;
 use std::fmt::{self, Debug, Display};
@@ -17,7 +17,7 @@ use serde::de;
 use serde::ser;
 
 /// This type represents all possible errors that can occur when serializing or
-/// deserializing JSON data.
+/// deserializing S-expression data.
 pub struct Error {
     /// This `Box` allows us to keep the size of `Error` as small as possible. A
     /// larger `Error` type was substantially slower due to all the functions
@@ -51,7 +51,7 @@ impl Error {
     /// Categorizes the cause of this error.
     ///
     /// - `Category::Io` - failure to read or write bytes on an IO stream
-    /// - `Category::Syntax` - input that is not syntactically valid JSON
+    /// - `Category::Syntax` - input that is not syntactically valid S-expression
     /// - `Category::Data` - input data that is semantically incorrect
     /// - `Category::Eof` - unexpected end of the input data
     pub fn classify(&self) -> Category {
@@ -88,7 +88,7 @@ impl Error {
     }
 
     /// Returns true if this error was caused by input that was not
-    /// syntactically valid JSON.
+    /// syntactically valid S-expression.
     pub fn is_syntax(&self) -> bool {
         self.classify() == Category::Syntax
     }
@@ -96,7 +96,7 @@ impl Error {
     /// Returns true if this error was caused by input data that was
     /// semantically incorrect.
     ///
-    /// For example, JSON containing a number is semantically incorrect when the
+    /// For example, S-expression containing a number is semantically incorrect when the
     /// type being deserialized into holds a String.
     pub fn is_data(&self) -> bool {
         self.classify() == Category::Data
@@ -119,12 +119,12 @@ pub enum Category {
     /// stream.
     Io,
 
-    /// The error was caused by input that was not syntactically valid JSON.
+    /// The error was caused by input that was not syntactically valid S-expression.
     Syntax,
 
     /// The error was caused by input data that was semantically incorrect.
     ///
-    /// For example, JSON containing a number is semantically incorrect when the
+    /// For example, S-expression containing a number is semantically incorrect when the
     /// type being deserialized into holds a String.
     Data,
 
@@ -138,7 +138,7 @@ pub enum Category {
 impl From<Error> for io::Error {
     /// Convert a `sexpr::Error` into an `io::Error`.
     ///
-    /// JSON syntax and data errors are turned into `InvalidData` IO errors.
+    /// S-expression syntax and data errors are turned into `InvalidData` IO errors.
     /// EOF errors are turned into `UnexpectedEof` IO errors.
     ///
     /// ```rust
@@ -202,7 +202,7 @@ pub enum ErrorCode {
     /// EOF while parsing a string.
     EofWhileParsingString,
 
-    /// EOF while parsing a JSON value.
+    /// EOF while parsing a S-expression value.
     EofWhileParsingValue,
 
     /// Expected this character to be a `':'`.
@@ -220,10 +220,10 @@ pub enum ErrorCode {
     /// Expected to parse either a `true`, `false`, or a `null`.
     ExpectedSomeIdent,
 
-    /// Expected this character to start a JSON value.
+    /// Expected this character to start a S-expression value.
     ExpectedSomeValue,
 
-    /// Expected this character to start a JSON string.
+    /// Expected this character to start a S-expression string.
     ExpectedSomeString,
 
     /// Invalid hex escape code.
@@ -244,13 +244,13 @@ pub enum ErrorCode {
     /// Lone leading surrogate in hex escape.
     LoneLeadingSurrogateInHexEscape,
 
-    /// JSON has non-whitespace trailing characters after the value.
+    /// S-expression has non-whitespace trailing characters after the value.
     TrailingCharacters,
 
     /// Unexpected end of hex excape.
     UnexpectedEndOfHexEscape,
 
-    /// Encountered nesting of JSON maps and arrays more than 128 layers deep.
+    /// Encountered nesting of S-expression maps and arrays more than 128 layers deep.
     RecursionLimitExceeded,
 }
 
@@ -334,7 +334,7 @@ impl error::Error for Error {
             ErrorCode::Io(ref err) => error::Error::description(err),
             _ => {
                 // If you want a better message, use Display::fmt or to_string().
-                "JSON error"
+                "S-expression error"
             }
         }
     }

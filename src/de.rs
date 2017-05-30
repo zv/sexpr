@@ -1,3 +1,13 @@
+// Copyright 2017 Zephyr Pellerin
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+//! Deserialize S-expression data to a Rust data structure.
+
 use std::{i32, u64};
 use std::io;
 use std::marker::PhantomData;
@@ -615,63 +625,6 @@ impl<'de, 'a, R: Read<'de> + 'a> de::SeqAccess<'de> for SeqAccess<'a, R> {
     }
 }
 
-struct MapAccess<'a, R: 'a> {
-    de: &'a mut Deserializer<R>,
-    first: bool,
-}
-
-impl<'a, R: 'a> MapAccess<'a, R> {
-    fn new(de: &'a mut Deserializer<R>) -> Self {
-        MapAccess {
-            de: de,
-            first: true,
-        }
-    }
-}
-
-impl<'de, 'a, R: Read<'de> + 'a> de::MapAccess<'de> for MapAccess<'a, R> {
-    type Error = Error;
-
-    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
-        where
-        K: de::DeserializeSeed<'de>,
-    {
-        let peek = match try!(self.de.parse_whitespace()) {
-            Some(b'}') => {
-                return Ok(None);
-            }
-            Some(b'.') if !self.first => {
-                self.de.eat_char();
-                try!(self.de.parse_whitespace())
-            }
-            Some(b) => {
-                if self.first {
-                    self.first = false;
-                    Some(b)
-                } else {
-                    return Err(self.de.peek_error(ErrorCode::ExpectedObjectCommaOrEnd));
-                }
-            }
-            None => {
-                return Err(self.de.peek_error(ErrorCode::EofWhileParsingObject));
-            }
-        };
-
-        match peek {
-            Some(b'"') => seed.deserialize(MapKey { de: &mut *self.de }).map(Some),
-            Some(_) => Err(self.de.peek_error(ErrorCode::KeyMustBeAString)),
-            None => Err(self.de.peek_error(ErrorCode::EofWhileParsingValue)),
-        }
-    }
-
-    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
-        where
-        V: de::DeserializeSeed<'de>,
-    {
-        unimplemented!()
-    }
-}
-
 // END POSSIBLY BROKEN --------------------------------------------------------
 
 struct VariantAccess<'a, R: 'a> {
@@ -688,7 +641,7 @@ impl<'de, 'a, R: Read<'de> + 'a> de::EnumAccess<'de> for VariantAccess<'a, R> {
     type Error = Error;
     type Variant = Self;
 
-    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self)>
+    fn variant_seed<V>(self, _seed: V) -> Result<(V::Value, Self)>
         where
         V: de::DeserializeSeed<'de>,
     {
@@ -777,12 +730,6 @@ impl<'de, 'a, R: Read<'de> + 'a> de::VariantAccess<'de> for UnitVariantAccess<'a
     }
 }
 
-/// Only deserialize from this after peeking a '"' byte! Otherwise it may
-/// deserialize invalid Sexp successfully.
-struct MapKey<'a, R: 'a> {
-    de: &'a mut Deserializer<R>,
-}
-
 macro_rules! deserialize_integer_key {
     ($deserialize:ident => $visit:ident) => {
         fn $deserialize<V>(self, visitor: V) -> Result<V::Value>
@@ -799,81 +746,6 @@ macro_rules! deserialize_integer_key {
             }
         }
     }
-}
-
-impl<'de, 'a, R> de::Deserializer<'de> for MapKey<'a, R>
-    where
-    R: Read<'de>,
-{
-    type Error = Error;
-
-    #[inline]
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
-        where
-        V: de::Visitor<'de>,
-    {
-        self.de.parse_value(visitor)
-    }
-
-    deserialize_integer_key!(deserialize_i8 => visit_i8);
-    deserialize_integer_key!(deserialize_i16 => visit_i16);
-    deserialize_integer_key!(deserialize_i32 => visit_i32);
-    deserialize_integer_key!(deserialize_i64 => visit_i64);
-    deserialize_integer_key!(deserialize_u8 => visit_u8);
-    deserialize_integer_key!(deserialize_u16 => visit_u16);
-    deserialize_integer_key!(deserialize_u32 => visit_u32);
-    deserialize_integer_key!(deserialize_u64 => visit_u64);
-
-    #[inline]
-        fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
-        where
-        V: de::Visitor<'de>,
-    {
-            // Map keys cannot be null.
-            visitor.visit_some(self)
-        }
-
-    #[inline]
-        fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
-        where
-        V: de::Visitor<'de>,
-    {
-            visitor.visit_newtype_struct(self)
-        }
-
-    #[inline]
-        fn deserialize_enum<V>(
-            self,
-            name: &'static str,
-            variants: &'static [&'static str],
-            visitor: V,
-        ) -> Result<V::Value>
-        where
-        V: de::Visitor<'de>,
-    {
-            self.de.deserialize_enum(name, variants, visitor)
-        }
-
-    #[inline]
-        fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
-        where
-        V: de::Visitor<'de>,
-    {
-            self.de.deserialize_bytes(visitor)
-        }
-
-    #[inline]
-        fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
-        where
-        V: de::Visitor<'de>,
-    {
-            self.de.deserialize_bytes(visitor)
-        }
-
-    forward_to_deserialize_any! {
-            bool f32 f64 char str string unit unit_struct seq tuple tuple_struct map
-                struct identifier ignored_any
-        }
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1111,13 +983,13 @@ pub fn from_slice<'a, T>(v: &'a [u8]) -> Result<T>
 /// }
 ///
 /// fn main() {
-///     // The type of `j` is `&str`
-///     let j = "{
-///                \"fingerprint\": \"0xF9BA143B95FF6D82\",
-///                \"location\": \"Menlo Park, CA\"
-///              }";
+///     // The type of `s` is `&str`
+///     let s = "(
+///                (fingerprint . \"0xF9BA143B95FF6D82\")
+///                (location . \"Menlo Park, CA\")
+///              )";
 ///
-///     let u: User = sexpr::from_str(j).unwrap();
+///     let u: User = sexpr::from_str(s).unwrap();
 ///     println!("{:#?}", u);
 /// }
 /// ```
