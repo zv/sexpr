@@ -105,7 +105,7 @@ impl From<String> for Sexp {
     /// # }
     /// ```
     fn from(f: String) -> Self {
-        Sexp::String(f)
+        Sexp::Atom(Atom::from_string(f))
     }
 }
 
@@ -125,7 +125,7 @@ impl<'a> From<&'a str> for Sexp {
     /// # }
     /// ```
     fn from(f: &str) -> Self {
-        Sexp::String(f.to_string())
+        Sexp::Atom(Atom::from_str(f))
     }
 }
 
@@ -158,7 +158,7 @@ impl<'a> From<Cow<'a, str>> for Sexp {
     /// # }
     /// ```
     fn from(f: Cow<'a, str>) -> Self {
-        Sexp::String(f.to_string())
+        Sexp::Atom(Atom::from_string(f))
     }
 }
 

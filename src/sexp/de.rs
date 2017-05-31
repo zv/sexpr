@@ -14,7 +14,6 @@ use std::slice;
 use std::str;
 use std::vec;
 
-
 use serde;
 use serde::de::{
     Deserialize,
@@ -77,7 +76,7 @@ impl<'de> Deserialize<'de> for Sexp {
 
             #[inline]
             fn visit_string<E>(self, value: String) -> Result<Sexp, E> {
-                Ok(Sexp::String(value))
+                Ok(Sexp::Atom(value.into()))
             }
 
             #[inline]
@@ -180,9 +179,7 @@ impl<'de> serde::Deserializer<'de> for Sexp {
             Sexp::Nil => visitor.visit_unit(),
             Sexp::Boolean(v) => visitor.visit_bool(v),
             Sexp::Number(n) => n.deserialize_any(visitor),
-            Sexp::String(v) => visitor.visit_string(v),
-            Sexp::Keyword(k) => visitor.visit_string(k),
-            Sexp::Symbol(s) => visitor.visit_string(s),
+            Sexp::Atom(a) => visitor.visit_string(a.as_string()),
             Sexp::Pair(car, cdr) => {
                 unimplemented!()
             },
@@ -386,9 +383,7 @@ impl<'de> serde::Deserializer<'de> for &'de Sexp {
             Sexp::Nil => visitor.visit_unit(),
             Sexp::Boolean(v) => visitor.visit_bool(v),
             Sexp::Number(ref n) => n.deserialize_any(visitor),
-            Sexp::String(ref v) => visitor.visit_borrowed_str(v),
-            Sexp::Keyword(ref k) => visitor.visit_borrowed_str(k),
-            Sexp::Symbol(ref s) => visitor.visit_borrowed_str(s),
+            Sexp::Atom(ref a) => visitor.visit_borrowed_str(a.as_str()),
             Sexp::Pair(ref car, ref cdr) => {
                 unimplemented!()
             },
@@ -585,9 +580,7 @@ impl Sexp {
             Sexp::Nil => Unexpected::Unit,
             Sexp::Boolean(b) => Unexpected::Bool(b),
             Sexp::Number(ref n) => n.unexpected(),
-            Sexp::String(ref s) => Unexpected::Str(s),
-            Sexp::Keyword(ref k) => Unexpected::Str(k),
-            Sexp::Symbol(ref s) => Unexpected::Str(s),
+            Sexp::Atom(ref a) => Unexpected::Str(a.as_str()),
             Sexp::Pair(ref car, ref cdr) => unimplemented!(),
             Sexp::List(_) => Unexpected::Seq
         }

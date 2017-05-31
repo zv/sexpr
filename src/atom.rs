@@ -87,6 +87,26 @@ impl Atom {
     pub fn from_string(s: String) -> Self {
         Atom::discriminate(s)
     }
+
+    #[inline]
+    pub fn as_str<'a>(&'a self) -> &'a str {
+        match self.a {
+            A::Symbol(ref s) => s,
+            A::Keyword(ref s) => s,
+            A::String(ref s) => s,
+        }
+    }
+
+    #[inline]
+    pub fn as_string(&self) -> String {
+        let s = match self.a {
+            A::Symbol(ref s)  => s,
+            A::Keyword(ref s) => s,
+            A::String(ref s)  => s,
+        };
+
+        s.clone()
+    }
 }
 
 impl fmt::Display for Atom {

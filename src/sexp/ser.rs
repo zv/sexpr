@@ -21,9 +21,7 @@ impl Serialize for Sexp {
             Sexp::Nil => serializer.serialize_unit(),
             Sexp::Boolean(b) => serializer.serialize_bool(b),
             Sexp::Number(ref n) => n.serialize(serializer),
-            Sexp::Symbol(ref sym) => serializer.serialize_str(sym),
-            Sexp::Keyword(ref sym) => serializer.serialize_str(sym),
-            Sexp::String(ref s) => serializer.serialize_str(s),
+            Sexp::Atom(ref atom) => serializer.serialize_str(&atom.as_string()),
             Sexp::List(ref v) => v.serialize(serializer),
             Sexp::Pair(_, _) => {
                 unimplemented!()
@@ -113,7 +111,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_str(self, value: &str) -> Result<Sexp, Error> {
-        Ok(Sexp::String(value.to_owned()))
+        Ok(Sexp::Atom(value.to_owned().into()))
     }
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Sexp, Error> {
@@ -324,8 +322,7 @@ impl serde::ser::SerializeMap for SerializeMap {
         T: Serialize,
     {
         match try!(to_value(&key)) {
-            Sexp::Symbol(s) => self.next_key = Some(s),
-            Sexp::String(s) => self.next_key = Some(s),
+            Sexp::Atom(a) => self.next_key = Some(a.as_string()),
             Sexp::Number(n) => {
                 if n.is_u64() || n.is_i64() {
                     self.next_key = Some(n.to_string())

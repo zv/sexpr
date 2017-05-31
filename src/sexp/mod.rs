@@ -72,18 +72,15 @@
 //! # }
 //! ```
 //!
-use std::fmt::Display;
-use std::i64;
 use std::str;
 use std::string::String;
 
 use serde::ser::Serialize;
 use serde::de::DeserializeOwned;
 
-use std::rc::Rc;
-
-use error::{Error, ErrorCode};
+use error::Error;
 pub use number::Number;
+pub use atom::Atom;
 
 mod index;
 pub use self::index::Index;
@@ -112,41 +109,19 @@ pub enum Sexp {
     /// ```
     Nil,
 
-    /// Represents a S-expression symbol.
+    /// Represents a S-expression string, symbol or keyword.
     ///
     /// ```rust
     /// # #[macro_use]
     /// # extern crate sexpr;
     /// #
     /// # fn main() {
-    /// let v = sexp!(symbolic);
+    /// let s = sexp!("string");
+    /// let y = sexp!(symbol);
+    /// let k = sexp!(#:keyword);
     /// # }
     /// ```
-    Symbol(String),
-
-    /// Represents a S-expression string.
-    ///
-    /// ```rust
-    /// # #[macro_use]
-    /// # extern crate sexpr;
-    /// #
-    /// # fn main() {
-    /// let v = sexp!("a string");
-    /// # }
-    /// ```
-    String(String),
-
-    /// Represents a S-expression keyword.
-    ///
-    /// ```rust
-    /// # #[macro_use]
-    /// # extern crate sexpr;
-    /// #
-    /// # fn main() {
-    /// let v = sexp!(:keyword);
-    /// # }
-    /// ```
-    Keyword(String),
+    Atom(Atom),
 
     /// Represents a S-expression number, whether integer or floating point.
     ///
@@ -203,6 +178,27 @@ pub enum Sexp {
 mod ser;
 mod de;
 
+
+impl From<String> for Sexp {
+    /// Convert `String` to `Sexp`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate sexpr;
+    /// #
+    /// # fn main() {
+    /// use sexpr::Sexp;
+    ///
+    /// let s: String = "lorem".to_string();
+    /// let x: Sexp = s.into();
+    /// # }
+    /// ```
+    fn from(f: String) -> Self {
+        Sexp::Atom(Atom::from_string(f))
+    }
+}
+
 impl Sexp {
     /// Return a new Sexp::Pair with a symbol key
     ///
@@ -214,8 +210,8 @@ impl Sexp {
     /// let alist_1 = Sexp::new_entry("a", 1)
     /// # }
     /// ```
-    pub fn new_entry<S: ToString, I: Into<Sexp>> (key: S, value: I) -> Sexp {
-        Sexp::Pair(Some(Box::new(Sexp::Symbol(key.to_string()))),
+    pub fn new_entry<A: Into<Atom>, I: Into<Sexp>> (key: A, value: I) -> Sexp {
+        Sexp::Pair(Some(Box::new(Sexp::Atom(key.into()))),
                    Some(Box::new(Sexp::from(value.into()))))
     }
 

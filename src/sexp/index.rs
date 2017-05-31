@@ -130,9 +130,7 @@ impl<'a> fmt::Display for Type<'a> {
             Sexp::Nil => formatter.write_str("nil"),
             Sexp::Boolean(_) => formatter.write_str("boolean"),
             Sexp::Number(_) => formatter.write_str("number"),
-            Sexp::String(_) => formatter.write_str("string"),
-            Sexp::Symbol(_) => formatter.write_str("symbol"),
-            Sexp::Keyword(_) => formatter.write_str("keyword"),
+            Sexp::Atom(_) => formatter.write_str("atom"),
             Sexp::List(_) => formatter.write_str("list"),
             Sexp::Pair(_, _) => formatter.write_str("pair"),
         }
