@@ -59,13 +59,13 @@ impl Error {
             ErrorCode::Message(_) => Category::Data,
             ErrorCode::Io(_) => Category::Io,
             ErrorCode::EofWhileParsingList |
-            ErrorCode::EofWhileParsingObject |
+            ErrorCode::EofWhileParsingAlist |
             ErrorCode::EofWhileParsingString |
             ErrorCode::EofWhileParsingValue => Category::Eof,
-            ErrorCode::ExpectedColon |
-            ErrorCode::ExpectedListCommaOrEnd |
-            ErrorCode::ExpectedObjectCommaOrEnd |
-            ErrorCode::ExpectedObjectOrArray |
+            ErrorCode::ExpectedPairDot |
+            ErrorCode::ExpectedListEltOrEnd |
+            ErrorCode::ExpectedPairOrEnd |
+            ErrorCode::ExpectedList |
             ErrorCode::ExpectedSomeIdent |
             ErrorCode::ExpectedSomeValue |
             ErrorCode::ExpectedSomeString |
@@ -119,12 +119,12 @@ pub enum Category {
     /// stream.
     Io,
 
-    /// The error was caused by input that was not syntactically valid S-expression.
+    /// The error was caused by input that was not a syntactically valid S-expression.
     Syntax,
 
     /// The error was caused by input data that was semantically incorrect.
     ///
-    /// For example, S-expression containing a number is semantically incorrect when the
+    /// For example, an S-expression containing a number is semantically incorrect when the
     /// type being deserialized into holds a String.
     Data,
 
@@ -138,7 +138,7 @@ pub enum Category {
 impl From<Error> for io::Error {
     /// Convert a `sexpr::Error` into an `io::Error`.
     ///
-    /// S-expression syntax and data errors are turned into `InvalidData` IO errors.
+    /// Sexprs syntax and data errors are turned into `InvalidData` IO errors.
     /// EOF errors are turned into `UnexpectedEof` IO errors.
     ///
     /// ```rust
@@ -197,7 +197,7 @@ pub enum ErrorCode {
     EofWhileParsingList,
 
     /// EOF while parsing an object.
-    EofWhileParsingObject,
+    EofWhileParsingAlist,
 
     /// EOF while parsing a string.
     EofWhileParsingString,
@@ -205,25 +205,25 @@ pub enum ErrorCode {
     /// EOF while parsing a S-expression value.
     EofWhileParsingValue,
 
-    /// Expected this character to be a `':'`.
-    ExpectedColon,
+    /// Expected this character to be a `'.'`.
+    ExpectedPairDot,
 
-    /// Expected this character to be either a `','` or a `']'`.
-    ExpectedListCommaOrEnd,
+    /// Expected this character to be either a space or `')'``.
+    ExpectedListEltOrEnd,
 
-    /// Expected this character to be either a `','` or a `'}'`.
-    ExpectedObjectCommaOrEnd,
+    /// Expected this character to be either a `'.'` or a `')'`.
+    ExpectedPairOrEnd,
 
-    /// Expected this character to be either a `'{'` or a `'['`.
-    ExpectedObjectOrArray,
+    /// Expected this character to be either a `'('`
+    ExpectedList,
 
-    /// Expected to parse either a `true`, `false`, or a `null`.
+    /// Expected to parse either a `#t`, `#f`, or a `#nil`.
     ExpectedSomeIdent,
 
-    /// Expected this character to start a S-expression value.
+    /// Expected this character to start an S-expression value.
     ExpectedSomeValue,
 
-    /// Expected this character to start a S-expression string.
+    /// Expected this character to start an S-expression string, symbol or keyword.
     ExpectedSomeString,
 
     /// Invalid hex escape code.
@@ -303,13 +303,13 @@ impl Display for ErrorCode {
             ErrorCode::Message(ref msg) => f.write_str(msg),
             ErrorCode::Io(ref err) => Display::fmt(err, f),
             ErrorCode::EofWhileParsingList => f.write_str("EOF while parsing a list"),
-            ErrorCode::EofWhileParsingObject => f.write_str("EOF while parsing an object"),
+            ErrorCode::EofWhileParsingAlist => f.write_str("EOF while parsing an alist"),
             ErrorCode::EofWhileParsingString => f.write_str("EOF while parsing a string"),
             ErrorCode::EofWhileParsingValue => f.write_str("EOF while parsing a value"),
-            ErrorCode::ExpectedColon => f.write_str("expected `:`"),
-            ErrorCode::ExpectedListCommaOrEnd => f.write_str("expected `,` or `]`"),
-            ErrorCode::ExpectedObjectCommaOrEnd => f.write_str("expected `,` or `}`"),
-            ErrorCode::ExpectedObjectOrArray => f.write_str("expected `{` or `[`"),
+            ErrorCode::ExpectedPairDot => f.write_str("expected `.`"),
+            ErrorCode::ExpectedListEltOrEnd => f.write_str("expected ` ` or `)`"),
+            ErrorCode::ExpectedPairOrEnd => f.write_str("expected `.` or `)`"),
+            ErrorCode::ExpectedList => f.write_str("expected `(`"),
             ErrorCode::ExpectedSomeIdent => f.write_str("expected ident"),
             ErrorCode::ExpectedSomeValue => f.write_str("expected value"),
             ErrorCode::ExpectedSomeString => f.write_str("expected string"),

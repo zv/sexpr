@@ -531,7 +531,7 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
                             Ok(value)
                         }
                         Some(_) => Err(self.error(ErrorCode::ExpectedSomeValue)),
-                        None => Err(self.error(ErrorCode::EofWhileParsingObject)),
+                        None => Err(self.error(ErrorCode::EofWhileParsingAlist)),
                     }
                 }
                 Some(b'"') => visitor.visit_enum(UnitVariantAccess::new(self)),
@@ -609,7 +609,7 @@ impl<'de, 'a, R: Read<'de> + 'a> de::SeqAccess<'de> for SeqAccess<'a, R> {
                 if self.first {
                     self.first = false;
                 } else {
-                    return Err(self.de.peek_error(ErrorCode::ExpectedListCommaOrEnd));
+                    return Err(self.de.peek_error(ErrorCode::ExpectedListEltOrEnd));
                 }
             },
             None => {
@@ -838,7 +838,7 @@ impl<'de, R, T> Iterator for StreamDeserializer<'de, R, T>
                 }
                 Some(result)
             }
-            Ok(Some(_)) => Some(Err(self.de.peek_error(ErrorCode::ExpectedObjectOrArray))),
+            Ok(Some(_)) => Some(Err(self.de.peek_error(ErrorCode::ExpectedList))),
             Err(e) => Some(Err(e)),
         }
     }
