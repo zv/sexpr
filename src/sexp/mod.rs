@@ -13,7 +13,7 @@
 //! objects with very natural S-expression syntax. In order to use this macro,
 //! `sexpr` needs to be imported with the `#[macro_use]` attribute.
 //!
-//! ```rust
+//! ```rust,ignore
 //! #[macro_use]
 //! extern crate sexpr;
 //!
@@ -42,7 +42,7 @@
 //! [`from_reader`][from_reader] for parsing from any `io::Read` like a File or a
 //! TCP stream.
 //!
-//! ```rust
+//! ```rust,ignore
 //! extern crate sexpr;
 //!
 //! use sexpr::{Sexp, Error};
@@ -99,7 +99,7 @@ type ConsCell = Option<SexpPtr>;
 pub enum Sexp {
     /// Represents a S-expression nil value.
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// # #[macro_use]
     /// # extern crate sexpr;
     /// #
@@ -111,7 +111,7 @@ pub enum Sexp {
 
     /// Represents a S-expression string, symbol or keyword.
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// # #[macro_use]
     /// # extern crate sexpr;
     /// #
@@ -125,7 +125,7 @@ pub enum Sexp {
 
     /// Represents a S-expression number, whether integer or floating point.
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// # #[macro_use]
     /// # extern crate sexpr;
     /// #
@@ -137,7 +137,7 @@ pub enum Sexp {
 
     /// Represents a S-expression boolean.
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// # #[macro_use]
     /// # extern crate sexpr;
     /// #
@@ -149,7 +149,7 @@ pub enum Sexp {
 
     /// Represents a S-expression cons-pair.
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// # #[macro_use]
     /// # extern crate sexpr;
     /// #
@@ -164,7 +164,7 @@ pub enum Sexp {
     /// This enum type is 'multi-function' at this point, possibly representing either
     /// a list of items or an associative list.
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// # #[macro_use]
     /// # extern crate sexpr;
     /// #
@@ -184,7 +184,7 @@ impl From<String> for Sexp {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// # extern crate sexpr;
     /// #
     /// # fn main() {
@@ -203,7 +203,7 @@ impl Sexp {
     /// Return a new Sexp::Pair with a symbol key
     ///
     /// # Examples
-    /// ```rust
+    /// ```rust,ignore
     /// # extern crate sexpr;
     /// # fn main() {
     /// use sexpr::Sexp;
@@ -224,7 +224,7 @@ impl Sexp {
     /// number. Also returns `None` if the given key does not exist in the map
     /// or the given index is not within the bounds of the array.
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// # #[macro_use]
     /// # extern crate sexpr;
     /// #
@@ -243,7 +243,7 @@ impl Sexp {
     /// way. This returns `Value::Null` in cases where `get` would have returned
     /// `None`.
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// # #[macro_use]
     /// # extern crate sexpr;
     /// #
@@ -286,7 +286,7 @@ impl Sexp {
 /// Convert a `T` into `sexpr::Sexp` which is an enum that can represent
 /// any valid S-expression data.
 ///
-/// ```rust
+/// ```rust,ignore
 /// extern crate serde;
 ///
 /// #[macro_use]
@@ -331,7 +331,7 @@ impl Sexp {
 /// This conversion can fail if `T`'s implementation of `Serialize` decides to
 /// fail, or if `T` contains a map with non-string keys.
 ///
-/// ```rust
+/// ```rust,ignore
 /// extern crate sexpr;
 ///
 /// use std::collections::BTreeMap;
@@ -364,7 +364,7 @@ where
 /// the S-expression map or some number is too big to fit in the expected primitive
 /// type.
 ///
-/// ```rust
+/// ```rust,ignore
 /// #[macro_use]
 /// extern crate sexpr;
 ///

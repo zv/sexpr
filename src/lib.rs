@@ -61,7 +61,7 @@
 //! Any valid s-exp can be manipulated in the following recursive enum
 //! representation. This data structure is [`sexpr::Sexp`][sexp].
 //!
-//! ```rust
+//! ```rust,ignore
 //!  # use sexpr::{Number, Map};
 //!  #
 //!  # #[allow(dead_code)]
@@ -72,7 +72,7 @@
 //!     Keyword(String),
 //!     Number(Number),
 //!     Boolean(bool),
-//!     Pair(ConsCell, ConsCell),
+//!     Pair(Box<Sexp>, Box<Sexp>),
 //!     List(Vec<Sexp>),
 //! }
 //! ```
@@ -83,7 +83,7 @@
 //! [`from_reader`][from_reader] for parsing from any `io::Read` like a File or
 //! a TCP stream.
 //!
-//! ```rust
+//! ```rust,ignore
 //!  extern crate sexpr;
 //!
 //!  use sexpr::{Sexp, Error};
@@ -118,7 +118,7 @@
 //! Serde provides a powerful way of mapping S-expression data into Rust data
 //! structures automatically.
 //!
-//! ```rust
+//! ```rust,ignore
 //! extern crate serde;
 //! extern crate sexpr;
 //!
@@ -187,7 +187,7 @@
 //! [`sexpr::to_writer`][to_writer] which serializes to any `io::Write`
 //! such as a File or a TCP stream.
 //!
-//! ```rust
+//! ```rust,ignore
 //! extern crate serde;
 //! extern crate sexpr;
 //!

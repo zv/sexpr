@@ -759,7 +759,7 @@ macro_rules! deserialize_integer_key {
 /// null, boolean, number, or string at the top level are all
 /// errors.
 ///
-/// ```rust
+/// ```rust,ignore
 /// extern crate sexpr;
 ///
 /// use sexpr::{Deserializer, Sexp};
@@ -871,7 +871,7 @@ fn from_trait<'de, R, T>(read: R) -> Result<T>
 /// the Sexp map or some number is too big to fit in the expected primitive
 /// type.
 ///
-/// ```rust
+/// ```rust,ignore
 /// #[macro_use]
 /// extern crate serde_derive;
 ///
@@ -926,7 +926,7 @@ pub fn from_reader<R, T>(rdr: R) -> Result<T>
 /// missing from the S-expression or some number is too big to fit in the expected
 /// primitive type.
 ///
-/// ```rust
+/// ```rust,ignore
 /// #[macro_use]
 /// extern crate serde_derive;
 ///
@@ -969,7 +969,7 @@ pub fn from_slice<'a, T>(v: &'a [u8]) -> Result<T>
 /// missing from the S-expression or some number is too big to fit in the expected
 /// primitive type.
 ///
-/// ```rust
+/// ```rust,ignore
 /// #[macro_use]
 /// extern crate serde_derive;
 ///

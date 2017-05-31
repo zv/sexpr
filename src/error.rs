@@ -141,7 +141,7 @@ impl From<Error> for io::Error {
     /// Sexprs syntax and data errors are turned into `InvalidData` IO errors.
     /// EOF errors are turned into `UnexpectedEof` IO errors.
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use std::io;
     ///
     /// enum MyError {

@@ -175,7 +175,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// # #[macro_use]
     /// # extern crate sexpr;
     /// #
@@ -213,7 +213,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// # #[macro_use]
     /// # extern crate sexpr;
     /// #

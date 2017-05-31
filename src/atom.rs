@@ -55,24 +55,13 @@ impl Atom {
     ///
     /// Criteria for discriminating variants can be configured as appropriate.
     /// # Examples
-    ///
-    /// ```rust
-    /// # #[macro_use]
-    /// # extern_crate sexpr;
-    /// #
-    /// # use sexpr::Atom;
-    /// # fn main() {
-    /// assert!(Atom::Keyword("keyword"), Atom::discriminate("#:keyword"))
-    /// assert!(Atom::Symbol("symbol"), Atom::discriminate("symbol"))
-    /// assert!(Atom::String("\"string\""), Atom::discriminate("\"string\""))
-    /// ```
     pub fn discriminate(s: String) -> Self {
         if s.starts_with("#:") {
             let (_, keyword) = s.split_at(2);
             Atom { a: A::Keyword(String::from(keyword)) }
         } else if (s.starts_with('"') && s.ends_with('"'))
                || (s.starts_with("'") && s.ends_with("'")) {
-            Atom { a: A::String(s)}
+            Atom { a: A::String(String::from(&s[1..s.len()]))}
         } else {
             Atom { a: A::Symbol(s) }
         }
