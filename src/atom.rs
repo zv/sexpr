@@ -10,6 +10,8 @@ use serde::de::{self, Visitor};
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use std::fmt::{self, Debug, Display};
 
+use std::borrow::Cow;
+
 /// Represents a Sexp atom, whether symbol, keyword or string.
 #[derive(Clone, PartialEq)]
 pub struct Atom {
@@ -64,7 +66,7 @@ impl Atom {
     /// assert!(Atom::Symbol("symbol"), Atom::discriminate("symbol"))
     /// assert!(Atom::String("\"string\""), Atom::discriminate("\"string\""))
     /// ```
-    pub fn discriminate(s: String) -> Atom {
+    pub fn discriminate(s: String) -> Self {
         if s.starts_with("#:") {
             let (_, keyword) = s.split_at(2);
             Atom { a: A::Keyword(String::from(keyword)) }
@@ -74,6 +76,16 @@ impl Atom {
         } else {
             Atom { a: A::Symbol(s) }
         }
+    }
+
+    #[inline]
+    pub fn from_str(s: &str) -> Self {
+        Atom::discriminate(String::from(s))
+    }
+
+    #[inline]
+    pub fn from_string(s: String) -> Self {
+        Atom::discriminate(s)
     }
 }
 
@@ -134,7 +146,7 @@ impl<'de> Deserialize<'de> for Atom {
             where
                 E: de::Error,
             {
-                Ok(Atom::discriminate(value))
+                Ok(Atom::from_string(value))
             }
         }
 
@@ -185,5 +197,27 @@ impl<'de, 'a> Deserializer<'de> for &'a Atom {
         bool i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 char str string bytes
             byte_buf option unit unit_struct newtype_struct seq tuple
             tuple_struct map struct enum identifier ignored_any
+    }
+}
+
+impl From<String> for Atom {
+    #[inline]
+    fn from(s: String) -> Self {
+        Atom::from_string(String::from(s))
+    }
+}
+
+
+impl<'a> From<&'a str> for Atom {
+    #[inline]
+    fn from(s: &'a str) -> Self {
+        Atom::from_str(s)
+    }
+}
+
+impl<'a> From<Cow<'a, str>> for Atom {
+    #[inline]
+    fn from(s: Cow<'a, str>) -> Self {
+        Atom::from_string(s.to_string())
     }
 }
