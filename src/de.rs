@@ -185,20 +185,18 @@ impl<'de, R: Read<'de>> Deserializer<R> {
         };
 
         let value = match peek {
-            b'n' => {
+            b'#' => {
                 self.eat_char();
-                try!(self.parse_ident(b"nil"));
-                visitor.visit_unit()
-            }
-            b't' => {
-                self.eat_char();
-                try!(self.parse_ident(b"rue"));
-                visitor.visit_bool(true)
-            }
-            b'f' => {
-                self.eat_char();
-                try!(self.parse_ident(b"alse"));
-                visitor.visit_bool(false)
+                match try!(self.next_char()) {
+                    Some(b't') => visitor.visit_bool(true),
+                    Some(b'f') => visitor.visit_bool(false),
+                    Some(b'n') => {
+                        try!(self.parse_ident(b"il"));
+                        visitor.visit_bool(true)
+                    },
+                    Some(_) => Err(self.peek_error(ErrorCode::ExpectedSomeIdent)),
+                    None => Err(self.peek_error(ErrorCode::EofWhileParsingValue))
+                }
             }
             b'-' => {
                 self.eat_char();

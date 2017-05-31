@@ -1196,7 +1196,7 @@ pub trait Formatter {
     where
         W: io::Write,
     {
-        writer.write_all(b"null")
+        writer.write_all(b"#nil")
     }
 
     /// Writes a `true` or `false` value to the specified writer.
@@ -1205,10 +1205,11 @@ pub trait Formatter {
     where
         W: io::Write,
     {
+        // XXX - This needs to be configurable
         let s = if value {
-            b"true" as &[u8]
+            b"#t" as &[u8]
         } else {
-            b"false" as &[u8]
+            b"#f" as &[u8]
         };
         writer.write_all(s)
     }
