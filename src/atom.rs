@@ -51,6 +51,14 @@ impl Atom {
         }
     }
 
+    pub fn into_string(s: String) -> Self {
+        Atom { a: A::String(s) }
+    }
+
+    pub fn into_symbol(s: String) -> Self {
+        Atom { a: A::Symbol(s) }
+    }
+
     /// Returns an Atom appropriate for it's contents.
     ///
     /// Criteria for discriminating variants can be configured as appropriate.
@@ -122,9 +130,9 @@ impl Serialize for Atom {
         S: Serializer,
     {
         match self.a {
-            A::Symbol(ref s) => serializer.serialize_str(s),
+            A::Symbol(ref s)  => serializer.serialize_newtype_struct("Symbol", s),
             A::Keyword(ref s) => serializer.serialize_str(s),
-            A::String(ref s) => serializer.serialize_str(s),
+            A::String(ref s)  => serializer.serialize_str(s),
         }
     }
 }

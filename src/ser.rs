@@ -225,7 +225,8 @@ where
 
     #[inline]
     fn serialize_str(self, value: &str) -> Result<()> {
-        try!(format_escaped_str(&mut self.writer, &mut self.formatter, value).map_err(Error::io));
+        try!(format_escaped_str(&mut self.writer,
+                                &mut self.formatter, value).map_err(Error::io));
         Ok(())
     }
 
@@ -270,7 +271,12 @@ where
     where
         T: ser::Serialize,
     {
-        value.serialize(self)
+        try!(
+            self.formatter
+                .write_bare_string(&mut self.writer, value)
+                .map_err(Error::io)
+        );
+        Ok(())
     }
 
     #[inline]
@@ -1302,6 +1308,17 @@ pub trait Formatter {
         W: io::Write,
     {
         dtoa::write(writer, value).map(|_| ())
+    }
+
+    /// Write a string without any enclosing quotes
+    #[inline]
+    fn write_bare_string<W: ?Sized, T: ?Sized>(&mut self, writer: &mut W, value: &T) -> io::Result<()>
+        where
+        W: io::Write,
+        T: ser::Serialize,
+    {
+        let n = to_string(value).unwrap();
+        writer.write_all(&n[1 .. n.len() - 1].as_bytes())
     }
 
     /// Called before each series of `write_string_fragment` and

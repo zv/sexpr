@@ -19,6 +19,9 @@ use super::error::{Error, ErrorCode, Result};
 use read::{self, Reference};
 
 pub use read::{Read, IoRead, SliceRead, StrRead};
+use atom::Atom;
+use sexp::Sexp;
+
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -232,8 +235,8 @@ impl<'de, R: Read<'de>> Deserializer<R> {
             b'a' ... b'z' | b'A' ... b'Z' => {
                 self.str_buf.clear();
                 match try!(self.read.parse_symbol(&mut self.str_buf)) {
-                    Reference::Borrowed(s) => visitor.visit_borrowed_str(s),
-                    Reference::Copied(s) => visitor.visit_str(s),
+                    Reference::Borrowed(s) => visitor.visit_newtype_struct(Atom::from_str(s)),
+                    Reference::Copied(s) => visitor.visit_newtype_struct(Atom::from_str(s)),
                 }
             }
             _ => Err(self.peek_error(ErrorCode::ExpectedSomeValue)),

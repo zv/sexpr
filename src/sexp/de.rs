@@ -24,6 +24,7 @@ use serde::de::{
 
 use error::Error;
 use number::Number;
+use atom::Atom;
 use sexp::Sexp;
 
 impl<'de> Deserialize<'de> for Sexp {
@@ -71,7 +72,7 @@ impl<'de> Deserialize<'de> for Sexp {
 
             #[inline]
             fn visit_string<E>(self, value: String) -> Result<Sexp, E> {
-                Ok(Sexp::Atom(value.into()))
+                Ok(Sexp::Atom(Atom::into_string(value)))
             }
 
             #[inline]
@@ -91,6 +92,17 @@ impl<'de> Deserialize<'de> for Sexp {
             fn visit_unit<E>(self) -> Result<Sexp, E> {
                 Ok(Sexp::Nil)
             }
+
+            #[inline]
+            fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Sexp, D::Error>
+                where
+                D: serde::Deserializer<'de>,
+            {
+                /// XXX something about this feels wrong
+                let result: String = try!(Deserialize::deserialize(deserializer));
+                Ok(Sexp::Atom(Atom::into_symbol(String::from(result))))
+            }
+
 
             #[inline]
             fn visit_seq<V>(self, mut visitor: V) -> Result<Sexp, V::Error>

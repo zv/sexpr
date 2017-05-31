@@ -9,6 +9,7 @@
 use serde::{self, Serialize};
 use error::{Error, ErrorCode};
 use number::Number;
+use atom::{Atom};
 use sexp::{Sexp, to_value};
 
 
@@ -21,7 +22,7 @@ impl Serialize for Sexp {
             Sexp::Nil => serializer.serialize_unit(),
             Sexp::Boolean(b) => serializer.serialize_bool(b),
             Sexp::Number(ref n) => n.serialize(serializer),
-            Sexp::Atom(ref atom) => serializer.serialize_str(&atom.as_string()),
+            Sexp::Atom(ref atom) => atom.serialize(serializer),
             Sexp::List(ref v) => v.serialize(serializer),
             Sexp::Pair(_, _) => {
                 unimplemented!()
