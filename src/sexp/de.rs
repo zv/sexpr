@@ -6,7 +6,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::borrow::Cow;
 use std::fmt;
 use std::i64;
 use std::io;
@@ -18,13 +17,9 @@ use serde;
 use serde::de::{
     Deserialize,
     DeserializeSeed,
-    IntoDeserializer,
     Visitor,
     SeqAccess,
     MapAccess,
-    EnumAccess,
-    VariantAccess,
-    Unexpected
 };
 
 use error::Error;
@@ -111,7 +106,7 @@ impl<'de> Deserialize<'de> for Sexp {
                 Ok(Sexp::List(vec))
             }
 
-            fn visit_map<V>(self, mut visitor: V) -> Result<Sexp, V::Error>
+            fn visit_map<V>(self, _visitor: V) -> Result<Sexp, V::Error>
             where
                 V: MapAccess<'de>,
             {
@@ -180,7 +175,7 @@ impl<'de> serde::Deserializer<'de> for Sexp {
             Sexp::Boolean(v) => visitor.visit_bool(v),
             Sexp::Number(n) => n.deserialize_any(visitor),
             Sexp::Atom(a) => visitor.visit_string(a.as_string()),
-            Sexp::Pair(car, cdr) => {
+            Sexp::Pair(_, _) => {
                 unimplemented!()
             },
             Sexp::List(v) => {
@@ -213,7 +208,7 @@ impl<'de> serde::Deserializer<'de> for Sexp {
         self,
         _name: &str,
         _variants: &'static [&'static str],
-        visitor: V,
+        _visitor: V,
     ) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
@@ -237,77 +232,6 @@ impl<'de> serde::Deserializer<'de> for Sexp {
         bool i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 char str string bytes
         byte_buf unit unit_struct seq tuple tuple_struct map struct identifier
         ignored_any
-    }
-}
-
-struct EnumDeserializer {
-    variant: String,
-    value: Option<Sexp>,
-}
-
-impl<'de> EnumAccess<'de> for EnumDeserializer {
-    type Error = Error;
-    type Variant = VariantDeserializer;
-
-    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, VariantDeserializer), Error>
-    where
-        V: DeserializeSeed<'de>,
-    {
-        let variant = self.variant.into_deserializer();
-        let visitor = VariantDeserializer { value: self.value };
-        seed.deserialize(variant).map(|v| (v, visitor))
-    }
-}
-
-struct VariantDeserializer {
-    value: Option<Sexp>,
-}
-
-impl<'de> VariantAccess<'de> for VariantDeserializer {
-    type Error = Error;
-
-    fn unit_variant(self) -> Result<(), Error> {
-        match self.value {
-            Some(value) => Deserialize::deserialize(value),
-            None => Ok(()),
-        }
-    }
-
-    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Error>
-    where
-        T: DeserializeSeed<'de>,
-    {
-        match self.value {
-            Some(value) => seed.deserialize(value),
-            None => Err(serde::de::Error::invalid_type(Unexpected::UnitVariant, &"newtype variant"),),
-        }
-    }
-
-    fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value, Error>
-    where
-        V: Visitor<'de>,
-    {
-        match self.value {
-            Some(Sexp::List(v)) => {
-                serde::Deserializer::deserialize_any(SeqDeserializer::new(v), visitor)
-            }
-            Some(other) => Err(serde::de::Error::invalid_type(other.unexpected(), &"tuple variant"),),
-            None => Err(serde::de::Error::invalid_type(Unexpected::UnitVariant, &"tuple variant"),),
-        }
-    }
-
-    fn struct_variant<V>(
-        self,
-        _fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Error>
-    where
-        V: Visitor<'de>,
-    {
-        match self.value {
-            Some(other) => Err(serde::de::Error::invalid_type(other.unexpected(), &"struct variant"),),
-            _ => Err(serde::de::Error::invalid_type(Unexpected::UnitVariant, &"struct variant"),),
-        }
     }
 }
 
@@ -384,7 +308,7 @@ impl<'de> serde::Deserializer<'de> for &'de Sexp {
             Sexp::Boolean(v) => visitor.visit_bool(v),
             Sexp::Number(ref n) => n.deserialize_any(visitor),
             Sexp::Atom(ref a) => visitor.visit_borrowed_str(a.as_str()),
-            Sexp::Pair(ref car, ref cdr) => {
+            Sexp::Pair(_, _) => {
                 unimplemented!()
             },
             Sexp::List(ref v) => {
@@ -415,7 +339,7 @@ impl<'de> serde::Deserializer<'de> for &'de Sexp {
         self,
         _name: &str,
         _variants: &'static [&'static str],
-        visitor: V,
+        _visitor: V,
     ) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
@@ -442,76 +366,6 @@ impl<'de> serde::Deserializer<'de> for &'de Sexp {
     }
 }
 
-struct EnumRefDeserializer<'de> {
-    variant: &'de str,
-    value: Option<&'de Sexp>,
-}
-
-impl<'de> EnumAccess<'de> for EnumRefDeserializer<'de> {
-    type Error = Error;
-    type Variant = VariantRefDeserializer<'de>;
-
-    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Error>
-    where
-        V: DeserializeSeed<'de>,
-    {
-        let variant = self.variant.into_deserializer();
-        let visitor = VariantRefDeserializer { value: self.value };
-        seed.deserialize(variant).map(|v| (v, visitor))
-    }
-}
-
-struct VariantRefDeserializer<'de> {
-    value: Option<&'de Sexp>,
-}
-
-impl<'de> VariantAccess<'de> for VariantRefDeserializer<'de> {
-    type Error = Error;
-
-    fn unit_variant(self) -> Result<(), Error> {
-        match self.value {
-            Some(value) => Deserialize::deserialize(value),
-            None => Ok(()),
-        }
-    }
-
-    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Error>
-    where
-        T: DeserializeSeed<'de>,
-    {
-        match self.value {
-            Some(value) => seed.deserialize(value),
-            None => Err(serde::de::Error::invalid_type(Unexpected::UnitVariant, &"newtype variant"),),
-        }
-    }
-
-    fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value, Error>
-    where
-        V: Visitor<'de>,
-    {
-        match self.value {
-            Some(&Sexp::List(ref v)) => {
-                serde::Deserializer::deserialize_any(SeqRefDeserializer::new(v), visitor)
-            }
-            Some(other) => Err(serde::de::Error::invalid_type(other.unexpected(), &"tuple variant"),),
-            None => Err(serde::de::Error::invalid_type(Unexpected::UnitVariant, &"tuple variant"),),
-        }
-    }
-
-    fn struct_variant<V>(
-        self,
-        _fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Error>
-    where
-        V: Visitor<'de>,
-    {
-        match self.value {
-            Some(other) => Err(serde::de::Error::invalid_type(other.unexpected(), &"struct variant"),),
-            _ => Err(serde::de::Error::invalid_type(Unexpected::UnitVariant, &"struct variant"),),
-        }
-    }
-}
 
 struct SeqRefDeserializer<'de> {
     iter: slice::Iter<'de, Sexp>,
@@ -569,20 +423,6 @@ impl<'de> SeqAccess<'de> for SeqRefDeserializer<'de> {
         match self.iter.size_hint() {
             (lower, Some(upper)) if lower == upper => Some(upper),
             _ => None,
-        }
-    }
-}
-
-
-impl Sexp {
-    fn unexpected(&self) -> Unexpected {
-        match *self {
-            Sexp::Nil => Unexpected::Unit,
-            Sexp::Boolean(b) => Unexpected::Bool(b),
-            Sexp::Number(ref n) => n.unexpected(),
-            Sexp::Atom(ref a) => Unexpected::Str(a.as_str()),
-            Sexp::Pair(ref car, ref cdr) => unimplemented!(),
-            Sexp::List(_) => Unexpected::Seq
         }
     }
 }

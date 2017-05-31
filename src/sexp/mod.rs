@@ -259,7 +259,7 @@ impl Sexp {
     /// assert_eq!(object[0]["x"]["y"]["z"], sexp!(null));
     /// # }
     /// ```
-    pub fn get<I: Index>(&self, index: I) -> Option<&Sexp> {
+    pub fn get<I: Index>(&self, _index: I) -> Option<&Sexp> {
         unimplemented!()
     }
 

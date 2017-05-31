@@ -236,7 +236,7 @@ pub struct SerializeVec {
     vec: Vec<Sexp>,
 }
 
-#[doc(hidden)]
+#[doc(hidden)]#[allow(dead_code)]
 pub struct SerializeTupleVariant {
     name: String,
     vec: Vec<Sexp>,
@@ -335,7 +335,7 @@ impl serde::ser::SerializeMap for SerializeMap {
         Ok(())
     }
 
-    fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Error>
+    fn serialize_value<T: ?Sized>(&mut self, _value: &T) -> Result<(), Error>
     where
         T: Serialize,
     {

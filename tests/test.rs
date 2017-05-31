@@ -102,6 +102,13 @@ fn test_write_bool() {
     test_encode_ok(tests);
 }
 
+#[test]
+fn test_write_sym() {
+    let tests = &[("sym", "sym"), ("Symbol", "Symbol")];
+    test_encode_ok(tests);
+}
+
+
 // ///
 // /// ```rust
 // /// # #[macro_use]
