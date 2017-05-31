@@ -60,6 +60,9 @@ pub trait Read<'de>: private::Sealed {
     #[doc(hidden)]
     fn parse_str<'s>(&'s mut self, scratch: &'s mut Vec<u8>) -> Result<Reference<'de, 's, str>>;
 
+    /// Parses an unescaped string until the next whitespace or list close..
+    fn parse_symbol<'s>(&'s mut self, scratch: &'s mut Vec<u8>) -> Result<Reference<'de, 's, str>>;
+
     /// Assumes the previous byte was a quotation mark. Parses a JSON-escaped
     /// string until the next quotation mark using the given scratch space if
     /// necessary. The scratch space is initially empty.
@@ -96,7 +99,7 @@ impl<'b, 'c, T: ?Sized + 'static> Deref for Reference<'b, 'c, T> {
 
 /// JSON input source that reads from a std::io input stream.
 pub struct IoRead<R>
-where
+    where
     R: io::Read,
 {
     iter: LineColIterator<io::Bytes<R>>,
@@ -129,7 +132,7 @@ mod private {
 //////////////////////////////////////////////////////////////////////////////
 
 impl<R> IoRead<R>
-where
+    where
     R: io::Read,
 {
     /// Create a JSON input source to read from a std::io input stream.
@@ -141,14 +144,10 @@ where
     }
 }
 
-impl<R> private::Sealed for IoRead<R>
-where
-    R: io::Read,
-{
-}
+impl<R> private::Sealed for IoRead<R> where R: io::Read { }
 
 impl<R> IoRead<R>
-where
+    where
     R: io::Read,
 {
     fn parse_str_bytes<'s, T, F>(
@@ -157,7 +156,7 @@ where
         validate: bool,
         result: F,
     ) -> Result<T>
-    where
+        where
         T: 's,
         F: FnOnce(&'s Self, &'s [u8]) -> Result<T>,
     {
@@ -183,10 +182,29 @@ where
             }
         }
     }
+
+    fn parse_symbol_bytes<'s, T, F>(
+        &'s mut self,
+        scratch: &'s mut Vec<u8>,
+        result: F,
+    ) -> Result<T>
+        where
+        T: 's,
+        F: FnOnce(&'s Self, &'s [u8]) -> Result<T>,
+    {
+        loop {
+            match try!(self.next().map_err(Error::io)) {
+                Some(b' ') | Some(b'\n') | Some(b'\t') | Some(b'\r') | Some(b')') | None => return result(self, scratch),
+                Some(ch) => scratch.push(ch),
+            }
+        }
+    }
 }
 
+
+
 impl<'de, R> Read<'de> for IoRead<R>
-where
+    where
     R: io::Read,
 {
     #[inline]
@@ -257,6 +275,11 @@ where
         self.parse_str_bytes(scratch, false, |_, bytes| Ok(bytes))
             .map(Reference::Copied)
     }
+
+    fn parse_symbol<'s>(&'s mut self, scratch: &'s mut Vec<u8>) -> Result<Reference<'de, 's, str>> {
+        self.parse_symbol_bytes(scratch, as_str)
+            .map(Reference::Copied)
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -286,6 +309,38 @@ impl<'a> SliceRead<'a> {
         pos
     }
 
+    fn parse_symbol_bytes<'s, T: ?Sized, F>(
+        &'s mut self,
+        scratch: &'s mut Vec<u8>,
+        result: F,
+    ) -> Result<Reference<'a, 's, T>>
+        where
+        T: 's,
+        F: for<'f> FnOnce(&'s Self, &'f [u8]) -> Result<&'f T>,
+    {
+        // Index of the first byte not yet copied into the scratch space.
+        let start = self.index;
+
+        loop {
+            match self.slice[self.index] {
+                b' ' | b'\n' | b'\t' | b'\r' | b')' =>   {
+                    if scratch.is_empty() {
+                        // Fast path: return a slice of the raw JSON without any
+                        // copying.
+                        let borrowed = &self.slice[start..self.index];
+                        return result(self, borrowed).map(Reference::Borrowed);
+                    } else {
+                        scratch.extend_from_slice(&self.slice[start..self.index]);
+                        // "as &[u8]" is required for rustc 1.8.0
+                        let copied = scratch as &[u8];
+                        return result(self, copied).map(Reference::Copied);
+                    }
+                }
+                _ => self.index += 1
+            }
+        }
+    }
+
     /// The big optimization here over IoRead is that if the string contains no
     /// backslash escape sequences, the returned &str is a slice of the raw JSON
     /// data so we avoid copying into the scratch space.
@@ -295,7 +350,7 @@ impl<'a> SliceRead<'a> {
         validate: bool,
         result: F,
     ) -> Result<Reference<'a, 's, T>>
-    where
+        where
         T: 's,
         F: for<'f> FnOnce(&'s Self, &'f [u8]) -> Result<&'f T>,
     {
@@ -396,6 +451,10 @@ impl<'a> Read<'a> for SliceRead<'a> {
         self.parse_str_bytes(scratch, true, as_str)
     }
 
+    fn parse_symbol<'s>(&'s mut self, scratch: &'s mut Vec<u8>) -> Result<Reference<'a, 's, str>> {
+        self.parse_symbol_bytes(scratch, as_str)
+    }
+
     fn parse_str_raw<'s>(
         &'s mut self,
         scratch: &'s mut Vec<u8>,
@@ -454,6 +513,17 @@ impl<'a> Read<'a> for StrRead<'a> {
             )
     }
 
+    fn parse_symbol<'s>(&'s mut self, scratch: &'s mut Vec<u8>) -> Result<Reference<'a, 's, str>> {
+        self.delegate
+            .parse_symbol_bytes(
+                scratch, |_, bytes| {
+                    // The input is assumed to be valid UTF-8 and the \u-escapes are
+                    // checked along the way, so don't need to check here.
+                    Ok(unsafe { str::from_utf8_unchecked(bytes) })
+                }
+            )
+    }
+
     fn parse_str_raw<'s>(
         &'s mut self,
         scratch: &'s mut Vec<u8>,
@@ -476,20 +546,20 @@ static ESCAPE: [bool; 256] = [
     //   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
     CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, // 0
     CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, // 1
-     O,  O, QU,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // 2
-     O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // 3
-     O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // 4
-     O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, BS,  O,  O,  O, // 5
-     O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // 6
-     O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // 7
-     O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // 8
-     O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // 9
-     O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // A
-     O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // B
-     O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // C
-     O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // D
-     O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // E
-     O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // F
+    O,  O, QU,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // 2
+    O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // 3
+    O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // 4
+    O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, BS,  O,  O,  O, // 5
+    O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // 6
+    O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // 7
+    O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // 8
+    O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // 9
+    O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // A
+    O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // B
+    O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // C
+    O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // D
+    O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // E
+    O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O,  O, // F
 ];
 
 fn next_or_eof<'de, R: Read<'de>>(read: &mut R) -> Result<u8> {

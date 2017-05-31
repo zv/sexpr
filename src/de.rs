@@ -229,6 +229,13 @@ impl<'de, R: Read<'de>> Deserializer<R> {
                     (Err(err), _) | (_, Err(err)) => Err(err),
                 }
             }
+            b'a' ... b'z' | b'A' ... b'Z' => {
+                self.str_buf.clear();
+                match try!(self.read.parse_symbol(&mut self.str_buf)) {
+                    Reference::Borrowed(s) => visitor.visit_borrowed_str(s),
+                    Reference::Copied(s) => visitor.visit_str(s),
+                }
+            }
             _ => Err(self.peek_error(ErrorCode::ExpectedSomeValue)),
         };
 
